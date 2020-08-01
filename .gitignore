@@ -1,0 +1,9 @@
+
+*.emProject
+/emStudiov4
+/EWARM
+/EWARMv8
+/GNU_ARM
+/MDK_ARM
+/MDK_ARMv5
+/SourceryG++Lite
