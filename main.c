@@ -179,13 +179,18 @@ int main(void) {
 	printf("\r\n");
 	
 	//wsBlinkAll(300);
-	for(j = 0; j < WS_PIXEL; j++) {
-		wsSetColor(WS_LED[j], ws_white, 0.1);
-		delay(20000);
-	}
-	for(j = 0; j < WS_PIXEL; j++) {
-		wsSetColor(WS_LED[j], ws_white, 0);
-		delay(20000);
+//	for(j = 0; j < WS_PIXEL; j++) {
+//		wsSetColor(WS_LED[j], ws_white, 0.1);
+//		delay(20000);
+//	}
+//	for(j = 0; j < WS_PIXEL; j++) {
+//		wsSetColor(WS_LED[j], ws_white, 0);
+//		delay(20000);
+//	}
+
+	for (color_n = 0; color_n < 8; color_n += 1) {
+		if (color_n == 3 || color_n == 4) wsSetColor(color_n, ws_white, ((float)slideValue) / 100.0);
+		else wsSetColor(color_n, ws_clean, ((float)slideValue) / 100.0);
 	}
 	initFlag = TRUE;
 
@@ -205,33 +210,26 @@ int main(void) {
 			TK_CHECK = TRUE;
 			Touch.Data = Touchkey_ButtonRead();
 			get_TKLR();
-			printf("\r%d, PADS: %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d, DATA = %04x, slideValue = %3d, zoomValue = %3d",
-				status,
-				Touch.Bit.Key1,  Touch.Bit.Key2,  Touch.Bit.Key3,  Touch.Bit.Key4,
-				Touch.Bit.Key5,  Touch.Bit.Key6,  Touch.Bit.Key7,  Touch.Bit.Key8,
-				Touch.Bit.Key9,  Touch.Bit.Key10, Touch.Bit.Key11, Touch.Bit.Key12,
-				Touch.Bit.Key13, Touch.Bit.Key14, Touch.Bit.Key15, Touch.Bit.Key16,
-				Touch.Data,
-				slideValue,
-				zoomValue
-			);
+			printf("Status = %d, DATA = %04X, slideValue = %3d, zoomValue = %3d\r\n", status, Touch.Data, slideValue, zoomValue);
 			if (status == slide) Slide(TK_L, TK_R, &slideValue);
 			else if (status == zoom) Zoom(TK_L, TK_R, &zoomValue);
-//			for (color_n = 0; color_n < 8; color_n += 1) {
-//				if (zoomValue <= 2) {
-//					if (color_n >= 3 && color_n <= 4) wsSetColor(color_n, ws_white, ((float)slideValue) / 100.0);
-//					else wsSetColor(color_n, ws_clean, ((float)slideValue) / 100.0);
-//				} else if (zoomValue <= 4) {
-//					if (color_n >= 2 && color_n <= 5) wsSetColor(color_n, ws_white, ((float)slideValue) / 100.0);
-//					else wsSetColor(color_n, ws_clean, ((float)slideValue) / 100.0);
-//				} else if (zoomValue <= 6) {
-//					if (color_n >= 1 && color_n <= 6) wsSetColor(color_n, ws_white, ((float)slideValue) / 100.0);
-//					else wsSetColor(color_n, ws_clean, ((float)slideValue) / 100.0);
-//				} else if (zoomValue <= 8) {
-//					if (color_n >= 0 && color_n <= 7) wsSetColor(color_n, ws_white, ((float)slideValue) / 100.0);
-//					else wsSetColor(color_n, ws_clean, ((float)slideValue) / 100.0);
-//				}
-//			}
+			for (color_n = 0; color_n < 8; color_n += 1) {
+				if (zoomValue <= 2) {
+					if (color_n >= 3 && color_n <= 4) wsSetColor(color_n, ws_white, ((float)slideValue) / 100.0);
+					else wsSetColor(color_n, ws_clean, ((float)slideValue) / 100.0);
+				} else if (zoomValue <= 4) {
+					if (color_n >= 2 && color_n <= 5) wsSetColor(color_n, ws_white, ((float)slideValue) / 100.0);
+					else wsSetColor(color_n, ws_clean, ((float)slideValue) / 100.0);
+				} else if (zoomValue <= 6) {
+					if (color_n >= 1 && color_n <= 6) wsSetColor(color_n, ws_white, ((float)slideValue) / 100.0);
+					else wsSetColor(color_n, ws_clean, ((float)slideValue) / 100.0);
+				} else if (zoomValue <= 8) {
+					if (color_n >= 0 && color_n <= 7) wsSetColor(color_n, ws_white, ((float)slideValue) / 100.0);
+					else wsSetColor(color_n, ws_clean, ((float)slideValue) / 100.0);
+				}
+			}
+			
+			startShow = TRUE;
 			uCounter = (HSE_VALUE >> 4);
 			while (uCounter--);
 		} else {
@@ -260,6 +258,18 @@ void CKCU_Configuration(void) {
 }
 
 void GPIO_Configuration(void) {
+	{ /* Enable peripheral clock                                                                              */
+		CKCU_PeripClockConfig_TypeDef CKCUClock = {{ 0 }};
+		CKCUClock.Bit.PA = 1;
+		CKCUClock.Bit.PB = 1;
+		CKCUClock.Bit.PC = 1;
+		CKCUClock.Bit.PD = 1;
+		CKCU_PeripClockConfig(CKCUClock, ENABLE);
+	}
+	
+	GPIO_DirectionConfig(HT_GPIOC, GPIO_PIN_0, GPIO_DIR_IN);
+	GPIO_InputConfig(HT_GPIOC, GPIO_PIN_0, ENABLE);
+	
 #if (RETARGET_PORT == RETARGET_USART0)
 	AFIO_GPxConfig(GPIO_PA, AFIO_PIN_2 | AFIO_PIN_3, AFIO_FUN_USART_UART);
 #endif

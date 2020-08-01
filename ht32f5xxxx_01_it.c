@@ -215,12 +215,12 @@ void GPTM1_IRQHandler(void) {
 	
 	TM_ClearFlag(HT_GPTM1, TM_FLAG_UEV);
 	
-//	if (startShow == TRUE || initFlag == FALSE) {
-//		wsShow();
-//		startShow = FALSE;
-//		i = 0;
-//		sampleFlag = FALSE;
-//	}
+	if (startShow == TRUE || initFlag == FALSE) {
+		wsShow();
+		startShow = FALSE;
+		i = 0;
+		sampleFlag = FALSE;
+	}
 	
 	if (TK_CHECK) {
 		if (TK_R - TK_L > 2) {
