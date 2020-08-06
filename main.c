@@ -76,6 +76,7 @@ typedef union {
 
 const u8 zoom = 3, slide = 2, press = 1, none = 0;
 u8 ws_white[3] = {255, 255, 255}, ws_clean[3] = {0, 0, 0};
+u8 slideValue = 24, zoomValue = 2;
 
 u8 status = none;
 TouchKey_TypeDef Touch;
@@ -110,7 +111,7 @@ void _I2C_Touchkey_AckPolling(void);
 void get_TKLR(void);
 void Slide(u32, u32, u8*);
 void Zoom(u32, u32, u8*);
-void wsUpdateMag(void);
+void wsUpdateMag(u8);
 void ADC_MainRoutine(void);
 void RUN_FFT(void);
 static void delay(u32 count);
@@ -134,16 +135,16 @@ uint32_t fftSize = TEST_LENGTH_SAMPLES / 2;
 uint32_t ifftFlag = 0;
 uint32_t doBitReverse = 1;
 
-const u8 WS_LED[72] = {
-	 7,  6,  5,  4,  3,  2,  1,  0,
-	 8,  9, 10, 11, 12, 13, 14, 15,
-	23, 22, 21, 20, 19, 18, 17, 16,
-	24, 25, 26, 27, 28, 29, 30, 31,
-	39, 38, 37, 36, 35, 34, 33, 32,
-	40, 41, 42, 43, 44, 45, 46, 47,
-	55, 54, 53, 52, 51, 50, 49, 48,
-	56, 57, 58, 59, 60, 61, 62, 63,
-	71, 70, 69, 68, 67, 66, 65, 64
+const u8 WS_LED[9][16] = {
+	{ 15,  14,  13,  12,  11,  10,   9,   8,   7,   6,   5,   4,   3,   2,   1,   0},
+	{ 16,  17,  18,  19,  20,  21,  22,  23,  24,  25,  26,  27,  28,  29,  30,  31},
+	{ 47,  46,  45,  44,  43,  42,  41,  40,  39,  38,  37,  36,  35,  34,  33,  32},
+	{ 48,  49,  50,  51,  52,  53,  54,  55,  56,  57,  58,  59,  60,  61,  62,  63},
+	{ 79,  78,  77,  76,  75,  74,  73,  72,  71,  70,  69,  68,  67,  66,  65,  64},
+	{ 80,  81,  82,  83,  84,  85,  86,  87,  88,  89,  90,  91,  92,  93,  94,  95},
+	{111, 110, 109, 108, 107, 106, 105, 104, 103, 102, 101, 100,  99,  98,  97,  96},
+	{112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127},
+	{143, 142, 141, 140, 139, 138, 137, 136, 135, 134, 133, 132, 131, 130, 129, 128}
 };
 
 s16 j = 0;
@@ -156,8 +157,7 @@ s16 j = 0;
   ***********************************************************************************************************/
 int main(void) {
 	u32 uCounter;
-	u8 slideValue = 24;
-	u8 zoomValue = 2;
+	u8 mode = 2;
 	
 	NVIC_Configuration();               /* NVIC configuration                                                 */
 	CKCU_Configuration();               /* System Related configuration                                       */
@@ -171,73 +171,48 @@ int main(void) {
 	
 	wsInit();
 	
+//	printf("\r\n");
+//	for(j = 0; j < 31; j++) printf("%5.2fk ", 0.6 + 0.63 * j);
+//	printf("\r\n");
+	
+	wsBlinkAll(30);
+	
+	initFlag = TRUE;
+	
 	ADC_Cmd(HT_ADC0, ENABLE);
 	TM_Cmd(HT_GPTM0, ENABLE);
-	
-	printf("\r\n");
-	for(j = 0; j < 31; j++) printf("%5.2fk ", 0.6 + 0.63 * j);
-	printf("\r\n");
-	
-	//wsBlinkAll(300);
-//	for(j = 0; j < WS_PIXEL; j++) {
-//		wsSetColor(WS_LED[j], ws_white, 0.1);
-//		delay(20000);
-//	}
-//	for(j = 0; j < WS_PIXEL; j++) {
-//		wsSetColor(WS_LED[j], ws_white, 0);
-//		delay(20000);
-//	}
-
-	for (color_n = 0; color_n < 8; color_n += 1) {
-		if (color_n == 3 || color_n == 4) wsSetColor(color_n, ws_white, ((float)slideValue) / 100.0);
-		else wsSetColor(color_n, ws_clean, ((float)slideValue) / 100.0);
-	}
-	initFlag = TRUE;
-
 	while (1) {
+		
 		ADC_MainRoutine();
+		
 		if (sampleFlag) {
 			for (j = 0; j < TEST_LENGTH_SAMPLES; j += 1) fftData[j] = ((float)InputSignal[j]) / 2048.0;
 			RUN_FFT();
-			printf("\r");
-			for (j = 1; j < 32; j += 1) {
-				printf("%6.0f ", OutputSignal[j]);
-			}
-//			wsUpdateMag();
+//			printf("\r");
+//			for (j = 1; j < 32; j += 1) {
+//				printf("%6.0f ", OutputSignal[j]);
+//			}
+			wsUpdateMag(mode);
 		}
 		
-		if (!GPIO_ReadInBit(HT_GPIOC, GPIO_PIN_0)) {
-			TK_CHECK = TRUE;
-			Touch.Data = Touchkey_ButtonRead();
-			get_TKLR();
-			printf("Status = %d, DATA = %04X, slideValue = %3d, zoomValue = %3d\r\n", status, Touch.Data, slideValue, zoomValue);
-			if (status == slide) Slide(TK_L, TK_R, &slideValue);
-			else if (status == zoom) Zoom(TK_L, TK_R, &zoomValue);
-			for (color_n = 0; color_n < 8; color_n += 1) {
-				if (zoomValue <= 2) {
-					if (color_n >= 3 && color_n <= 4) wsSetColor(color_n, ws_white, ((float)slideValue) / 100.0);
-					else wsSetColor(color_n, ws_clean, ((float)slideValue) / 100.0);
-				} else if (zoomValue <= 4) {
-					if (color_n >= 2 && color_n <= 5) wsSetColor(color_n, ws_white, ((float)slideValue) / 100.0);
-					else wsSetColor(color_n, ws_clean, ((float)slideValue) / 100.0);
-				} else if (zoomValue <= 6) {
-					if (color_n >= 1 && color_n <= 6) wsSetColor(color_n, ws_white, ((float)slideValue) / 100.0);
-					else wsSetColor(color_n, ws_clean, ((float)slideValue) / 100.0);
-				} else if (zoomValue <= 8) {
-					if (color_n >= 0 && color_n <= 7) wsSetColor(color_n, ws_white, ((float)slideValue) / 100.0);
-					else wsSetColor(color_n, ws_clean, ((float)slideValue) / 100.0);
-				}
-			}
-			
-			startShow = TRUE;
-			uCounter = (HSE_VALUE >> 4);
-			while (uCounter--);
-		} else {
-			TK_CHECK = FALSE;
-			TK_1SEC = TRUE;
-			TK_COUNT = 0;
-			status = none;
-		}
+//		if (!GPIO_ReadInBit(HT_GPIOC, GPIO_PIN_0)) {
+//			TK_CHECK = TRUE;
+//			Touch.Data = Touchkey_ButtonRead();
+//			get_TKLR();
+//			printf("\rStatus = %d, DATA = %04X, slideValue = %3d, zoomValue = %3d", status, Touch.Data, slideValue, zoomValue);
+//			if (status == slide) Slide(TK_L, TK_R, &slideValue);
+//			else if (status == zoom) Zoom(TK_L, TK_R, &zoomValue);
+//			
+//			//wsUpdateMag(mode);
+//			
+//			uCounter = (HSE_VALUE >> 4);
+//			while (uCounter--);
+//		} else {
+//			TK_CHECK = FALSE;
+//			TK_1SEC = TRUE;
+//			TK_COUNT = 0;
+//			status = none;
+//		}
 	}
 }
 
@@ -381,8 +356,8 @@ void TM_Configuration(void) {
 
 	{ /* Time base configuration                                                                              */
 		TM_TimeBaseInitTypeDef TimeBaseInit;
-		TimeBaseInit.Prescaler = (SystemCoreClock / 80000) - 1;
-		TimeBaseInit.CounterReload = 4 - 1;
+		TimeBaseInit.Prescaler = (SystemCoreClock / 27000) - 1;
+		TimeBaseInit.CounterReload = 6 - 1;
 		TimeBaseInit.RepetitionCounter = 0;
 		TimeBaseInit.CounterMode = TM_CNT_MODE_UP;
 		TimeBaseInit.PSCReloadTime = TM_PSC_RLD_IMMEDIATE;
@@ -399,7 +374,7 @@ void TM_Configuration(void) {
 		OutInit.PolarityN = TM_CHP_NONINVERTED;
 		OutInit.IdleState = MCTM_OIS_LOW;
 		OutInit.IdleStateN = MCTM_OIS_HIGH;
-		OutInit.Compare = 2 - 1;
+		OutInit.Compare = 3 - 1;
 		OutInit.AsymmetricCompare = 0;
 		TM_OutputInit(HT_GPTM0, &OutInit);
 	}
@@ -542,7 +517,7 @@ void Zoom(u32 L, u32 R, u8* Value) {
 			if (*Value <= 2) *Value = 2;
 			else (*Value) -= 2;
 		} else if (L < prevL || R > prevR) {
-			if (*Value >= 8) *Value = 8;
+			if (*Value >= 16) *Value = 16;
 			else (*Value) += 2;
 		}
 		prevL = L;
@@ -550,10 +525,10 @@ void Zoom(u32 L, u32 R, u8* Value) {
 	}
 }
 
-void wsUpdateMag(void) {
+void wsUpdateMag(u8 mode) {
 	u8 i, j;
 	u8 level;
-	u8 color[9][3] = {
+	u8 musicColor[9][3] = {
 			{0, 255, 0},
 			{128, 255, 0},
 			{200, 255, 0},
@@ -564,20 +539,57 @@ void wsUpdateMag(void) {
 			{255, 80, 0},
 			{255, 0, 0}
 		};
-	for (i = 0; i < 8; i += 1) {
-		if (OutputSignal[i] < 3) level = 1;
-		else if(OutputSignal[i] < 5) level = 2;
-		else if(OutputSignal[i] < 8) level = 3;
-		else if(OutputSignal[i] < 11) level = 4;
-		else if(OutputSignal[i] < 14) level = 5;
-		else if(OutputSignal[i] < 17) level = 6;
-		else if(OutputSignal[i] < 20) level = 7;
-		else if(OutputSignal[i] < 23) level = 8;
-		else level = 9;
-		
-		for (j = 0; j < 9; j++) {
-			if (j < level) wsSetColor(WS_LED[i + j * 8], color[j], 0.2);
-			else wsSetColor(WS_LED[i + j * 8], color[j], 0);
+	u8 rows[16] = {0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0};
+	if (mode == 1) {
+		// Light Source Mode
+		for (i = 0; i < 16; i += 1) {
+			if (zoomValue <= 2) {
+				if (i >= 7 && i <= 8) rows[i] = 1;
+				else rows[i] = 0;
+			} else if (zoomValue <= 4) {
+				if (i >= 6 && i <= 9) rows[i] = 1;
+				else rows[i] = 0;
+			} else if (zoomValue <= 6) {
+				if (i >= 5 && i <= 10) rows[i] = 1;
+				else rows[i] = 0;
+			} else if (zoomValue <= 8) {
+				if (i >= 4 && i <= 11) rows[i] = 1;
+				else rows[i] = 0;
+			} else if (zoomValue <= 10) {
+				if (i >= 3 && i <= 12) rows[i] = 1;
+				else rows[i] = 0;
+			} else if (zoomValue <= 12) {
+				if (i >= 2 && i <= 13) rows[i] = 1;
+				else rows[i] = 0;
+			} else if (zoomValue <= 14) {
+				if (i >= 1 && i <= 14) rows[i] = 1;
+				else rows[i] = 0;
+			} else if (zoomValue <= 16) {
+				rows[i] = 1;
+			}
+		}
+		for (i = 0; i < 16; i += 1) {
+			for (j = 0; j < 8; j += 1) {
+				if (rows[i] == 1) wsSetColor(WS_LED[j][i], ws_white, ((float)slideValue) / 100.0);
+				else wsSetColor(WS_LED[j][i], ws_clean, 0);
+			}
+		}
+	} else if (mode == 2) {
+		// Music Mode
+		for (i = 0; i < 16; i += 1) {
+			if (OutputSignal[i + 1] < 3) level = 1;
+			else if(OutputSignal[i + 1] < 5) level = 2;
+			else if(OutputSignal[i + 1] < 8) level = 3;
+			else if(OutputSignal[i + 1] < 11) level = 4;
+			else if(OutputSignal[i + 1] < 14) level = 5;
+			else if(OutputSignal[i + 1] < 17) level = 6;
+			else if(OutputSignal[i + 1] < 20) level = 7;
+			else level = 8;
+			
+			for (j = 0; j < 8; j += 1) {
+				if (j < level) wsSetColor(WS_LED[j][i], musicColor[j], 0.5);
+				else wsSetColor(WS_LED[j][i], musicColor[j], 0);
+			}
 		}
 	}
 	
