@@ -74,23 +74,26 @@ typedef union {
 	u16 Data;
 } TouchKey_TypeDef;
 
+// Touch key
 const u8 zoom = 3, slide = 2, press = 1, none = 0;
-u8 ws_white[3] = {255, 255, 255}, ws_clean[3] = {0, 0, 0};
 u8 slideValue = 24, zoomValue = 2;
-
 u8 status = none;
 TouchKey_TypeDef Touch;
-
 bool TK_CHECK = FALSE, TK_1SEC = FALSE;
 u8 TK_L = 0, TK_R = 0;
 u16 TK_COUNT = 0, i = 0;
-s8 color_n;
 
-/* Private constants ---------------------------------------------------------------------------------------*/
+// WS2812B
+u8 ws_white[3] = {255, 255, 255}, ws_clean[3] = {0, 0, 0};
+u8 wsLevel[16] = {1};
+u8 wsLevelTM[16] = {0};
+
+// Touch key I2C
 #define I2C_TOUCHKEY_SPEED         (50000)          /*!< I2C speed                                          */
 #define I2C_TOUCHKEY_DEV_ADDR      (0x50)           /*!< I2C device address                                 */
 #define KEYSTATUS_CMD              (0x08)
 
+// FFT
 #define TEST_LENGTH_SAMPLES 128
 
 /* Private function prototypes -----------------------------------------------------------------------------*/
@@ -189,16 +192,6 @@ int main(void) {
 			printf("\rmode = %d", mode);
 		}
 		
-		ADC_MainRoutine();
-		
-		if (sampleFlag) {
-			for (j = 0; j < TEST_LENGTH_SAMPLES; j += 1) fftData[j] = ((float)InputSignal[j]) / 2048.0;
-			RUN_FFT();
-			if (mode == 2) {
-				wsUpdateMag(mode);
-				delay(300);
-			}
-		}
 		if (mode == 1) {
 			if (!GPIO_ReadInBit(HT_GPIOC, GPIO_PIN_0)) {
 				TK_CHECK = TRUE;
@@ -217,6 +210,16 @@ int main(void) {
 				TK_1SEC = TRUE;
 				TK_COUNT = 0;
 				status = none;
+			}
+		}else if(mode == 2) {
+			ADC_MainRoutine();
+			if (sampleFlag) {
+				for (j = 0; j < TEST_LENGTH_SAMPLES; j += 1) fftData[j] = ((float)InputSignal[j]) / 2048.0;
+				RUN_FFT();
+				if (mode == 2) {
+					wsUpdateMag(mode);
+					delay(300);
+				}
 			}
 		}
 	}
@@ -536,21 +539,10 @@ void Zoom(u32 L, u32 R, u8* Value) {
 
 void wsUpdateMag(u8 mode) {
 	u8 i, j;
-	u8 level;
-	u8 musicColor[9][3] = {
-			{0, 255, 0},
-			{128, 255, 0},
-			{200, 255, 0},
-			{255, 255, 0},
-			{200, 255, 0},
-			{255, 200, 0},
-			{255, 128, 0},
-			{255, 80, 0},
-			{255, 0, 0}
-		};
-	u8 rows[16] = {0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0};
+	
 	if (mode == 1) {
 		// Light Source Mode
+		u8 rows[16] = {0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0};
 		for (i = 0; i < 16; i += 1) {
 			if (zoomValue <= 2) {
 				if (i >= 7 && i <= 8) rows[i] = 1;
@@ -584,21 +576,45 @@ void wsUpdateMag(u8 mode) {
 			}
 		}
 	} else if (mode == 2) {
-		
 		// Music Mode
+		u8 level;
+		u8 musicColor[9][3] = {
+				{0, 255, 0},
+				{128, 255, 0},
+				{200, 255, 0},
+				{255, 255, 0},
+				{200, 255, 0},
+				{255, 200, 0},
+				{255, 128, 0},
+				{255, 80, 0},
+				{255, 0, 0}
+		};
+		
 		for (i = 0; i < 16; i += 1) {
-			if (OutputSignal[i + 1] < 3) level = 1;
-			else if(OutputSignal[i + 1] < 5) level = 2;
-			else if(OutputSignal[i + 1] < 8) level = 3;
-			else if(OutputSignal[i + 1] < 11) level = 4;
-			else if(OutputSignal[i + 1] < 14) level = 5;
-			else if(OutputSignal[i + 1] < 17) level = 6;
-			else if(OutputSignal[i + 1] < 20) level = 7;
+			if (OutputSignal[i*2 + 1] < 3) level = 1;
+			else if(OutputSignal[i*2 + 1] < 5) level = 2;
+			else if(OutputSignal[i*2 + 1] < 8) level = 3;
+			else if(OutputSignal[i*2 + 1] < 11) level = 4;
+			else if(OutputSignal[i*2 + 1] < 14) level = 5;
+			else if(OutputSignal[i*2 + 1] < 17) level = 6;
+			else if(OutputSignal[i*2 + 1] < 20) level = 7;
 			else level = 8;
 			
 			for (j = 0; j < 8; j += 1) {
-				if (j < level) wsSetColor(WS_LED[j][i], musicColor[j], 0.5);
+				if (j < level) wsSetColor(WS_LED[j][i], musicColor[j], 0.3);
 				else wsSetColor(WS_LED[j][i], musicColor[j], 0);
+				if(j == wsLevel[i] - 1)
+					wsSetColor(WS_LED[j][i], musicColor[j], 0.3);
+			}
+			
+			if(level > wsLevel[i]) {
+				wsLevel[i] = level;
+				wsLevelTM[i] = 30;
+			}
+			if(wsLevelTM[i] == 0) {
+				if(wsLevel[i] >= level) wsLevel[i]--;
+//				wsLevel[i] = level;
+				wsLevelTM[i] = 8;
 			}
 		}
 	}

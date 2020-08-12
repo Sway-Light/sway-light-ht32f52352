@@ -217,6 +217,8 @@ extern u16 TK_COUNT;
 
 void GPTM1_IRQHandler(void) {
 	extern bool startShow, sampleFlag, initFlag;
+	extern u8 wsLevelTM[16];
+	u8 j = 0;
 	
 	TM_ClearFlag(HT_GPTM1, TM_FLAG_UEV);
 	
@@ -226,6 +228,10 @@ void GPTM1_IRQHandler(void) {
 		i = 0;
 //		startCount = TRUE;
 		sampleFlag = FALSE;
+	}
+	
+	for(j = 0; j < 16; j++) {
+		if(wsLevelTM[j] > 0) wsLevelTM[j]--;
 	}
 	
 //	if (startCount || initFlag == FALSE) {

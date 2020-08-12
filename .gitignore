@@ -7,3 +7,5 @@
 /MDK_ARM
 /MDK_ARMv5
 /SourceryG++Lite
+arm_fft_bin_data.c
+_ht32_project_source.h
