@@ -194,7 +194,10 @@ int main(void) {
 		if (sampleFlag) {
 			for (j = 0; j < TEST_LENGTH_SAMPLES; j += 1) fftData[j] = ((float)InputSignal[j]) / 2048.0;
 			RUN_FFT();
-			if (mode == 2) wsUpdateMag(mode);
+			if (mode == 2) {
+				wsUpdateMag(mode);
+				delay(300);
+			}
 		}
 		if (mode == 1) {
 			if (!GPIO_ReadInBit(HT_GPIOC, GPIO_PIN_0)) {
@@ -505,10 +508,10 @@ void Slide(u32 L, u32 R, u8 *Value) {
 	if (L != prevL || R != prevR) {
 		if (L < prevL || R < prevR) {
 			if (*Value <= 0) *Value = 0;
-			else (*Value) -= 3;
+			else (*Value) -= 2;
 		} else if (L > prevL || R > prevR) {
-			if (*Value >= 30) *Value = 30;
-			else (*Value) += 3;
+			if (*Value >= 100) *Value = 100;
+			else (*Value) += 2;
 		}
 		prevL = L;
 		prevR = R;
