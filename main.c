@@ -171,10 +171,6 @@ int main(void) {
 	
 	wsInit();
 	
-//	printf("\r\n");
-//	for(j = 0; j < 31; j++) printf("%5.2fk ", 0.6 + 0.63 * j);
-//	printf("\r\n");
-	
 	wsBlinkAll(30);
 	
 	initFlag = TRUE;
@@ -182,37 +178,44 @@ int main(void) {
 	ADC_Cmd(HT_ADC0, ENABLE);
 	TM_Cmd(HT_GPTM0, ENABLE);
 	while (1) {
+		if (!GPIO_ReadInBit(HT_GPIOB, GPIO_PIN_1)) {
+			while (!GPIO_ReadInBit(HT_GPIOB, GPIO_PIN_1));
+			if (mode == 1) mode = 2;
+			else if (mode == 2) {
+				mode = 1;
+				i = 0;
+			}
+			wsUpdateMag(mode);
+			printf("\rmode = %d", mode);
+		}
 		
 		ADC_MainRoutine();
 		
 		if (sampleFlag) {
 			for (j = 0; j < TEST_LENGTH_SAMPLES; j += 1) fftData[j] = ((float)InputSignal[j]) / 2048.0;
 			RUN_FFT();
-//			printf("\r");
-//			for (j = 1; j < 32; j += 1) {
-//				printf("%6.0f ", OutputSignal[j]);
-//			}
-			wsUpdateMag(mode);
+			if (mode == 2) wsUpdateMag(mode);
 		}
-		
-//		if (!GPIO_ReadInBit(HT_GPIOC, GPIO_PIN_0)) {
-//			TK_CHECK = TRUE;
-//			Touch.Data = Touchkey_ButtonRead();
-//			get_TKLR();
-//			printf("\rStatus = %d, DATA = %04X, slideValue = %3d, zoomValue = %3d", status, Touch.Data, slideValue, zoomValue);
-//			if (status == slide) Slide(TK_L, TK_R, &slideValue);
-//			else if (status == zoom) Zoom(TK_L, TK_R, &zoomValue);
-//			
-//			//wsUpdateMag(mode);
-//			
-//			uCounter = (HSE_VALUE >> 4);
-//			while (uCounter--);
-//		} else {
-//			TK_CHECK = FALSE;
-//			TK_1SEC = TRUE;
-//			TK_COUNT = 0;
-//			status = none;
-//		}
+		if (mode == 1) {
+			if (!GPIO_ReadInBit(HT_GPIOC, GPIO_PIN_0)) {
+				TK_CHECK = TRUE;
+				Touch.Data = Touchkey_ButtonRead();
+				get_TKLR();
+				printf("\rStatus = %d, DATA = %04X, slideValue = %3d, zoomValue = %3d", status, Touch.Data, slideValue, zoomValue);
+				if (status == slide) Slide(TK_L, TK_R, &slideValue);
+				else if (status == zoom) Zoom(TK_L, TK_R, &zoomValue);
+				
+				wsUpdateMag(mode);
+				
+				uCounter = (HSE_VALUE >> 4);
+				while (uCounter--);
+			} else {
+				TK_CHECK = FALSE;
+				TK_1SEC = TRUE;
+				TK_COUNT = 0;
+				status = none;
+			}
+		}
 	}
 }
 
@@ -244,6 +247,9 @@ void GPIO_Configuration(void) {
 	
 	GPIO_DirectionConfig(HT_GPIOC, GPIO_PIN_0, GPIO_DIR_IN);
 	GPIO_InputConfig(HT_GPIOC, GPIO_PIN_0, ENABLE);
+	
+	GPIO_DirectionConfig(HT_GPIOB, GPIO_PIN_1, GPIO_DIR_IN);
+	GPIO_InputConfig(HT_GPIOB, GPIO_PIN_1, ENABLE);
 	
 #if (RETARGET_PORT == RETARGET_USART0)
 	AFIO_GPxConfig(GPIO_PA, AFIO_PIN_2 | AFIO_PIN_3, AFIO_FUN_USART_UART);
@@ -356,7 +362,7 @@ void TM_Configuration(void) {
 
 	{ /* Time base configuration                                                                              */
 		TM_TimeBaseInitTypeDef TimeBaseInit;
-		TimeBaseInit.Prescaler = (SystemCoreClock / 27000) - 1;
+		TimeBaseInit.Prescaler = (SystemCoreClock / 21000) - 1;
 		TimeBaseInit.CounterReload = 6 - 1;
 		TimeBaseInit.RepetitionCounter = 0;
 		TimeBaseInit.CounterMode = TM_CNT_MODE_UP;
@@ -575,6 +581,7 @@ void wsUpdateMag(u8 mode) {
 			}
 		}
 	} else if (mode == 2) {
+		
 		// Music Mode
 		for (i = 0; i < 16; i += 1) {
 			if (OutputSignal[i + 1] < 3) level = 1;

@@ -42,6 +42,7 @@
   * @{
   */
 
+extern u16 i;
 
 /* Global functions ----------------------------------------------------------------------------------------*/
 /*********************************************************************************************************//**
@@ -166,16 +167,17 @@ void SysTick_Handler(void) {
  * @brief   This function handles ADC interrupt.
  * @retval  None
  ************************************************************************************************************/
+extern vu32 gADC_CycleEndOfConversion;
+
 void ADC_IRQHandler(void) {
 	extern u32 gADC_Result;
-	extern vu32 gADC_CycleEndOfConversion;
 	if (ADC_GetIntStatus(HT_ADC0, ADC_INT_SINGLE_EOC) == SET) {
 		ADC_ClearIntPendingBit(HT_ADC0, ADC_FLAG_SINGLE_EOC);
 	}
 
 	if (ADC_GetIntStatus(HT_ADC0, ADC_INT_CYCLE_EOC) == SET) {
 		ADC_ClearIntPendingBit(HT_ADC0, ADC_FLAG_CYCLE_EOC);
-		gADC_CycleEndOfConversion = TRUE;
+		if (i < 128) gADC_CycleEndOfConversion = TRUE;
 		gADC_Result = (HT_ADC0->DR[0] & 0x0FFF) - 2048;
 		gADC_Result *= 32;
 	}
@@ -209,8 +211,10 @@ extern bool TK_CHECK, TK_1SEC;
 extern u8 TK_L, TK_R;
 extern u16 TK_COUNT;
 
+u32 time = 0;
+bool startCount = FALSE;
+
 void GPTM1_IRQHandler(void) {
-	extern u16 i;
 	extern bool startShow, sampleFlag, initFlag;
 	
 	TM_ClearFlag(HT_GPTM1, TM_FLAG_UEV);
@@ -219,7 +223,17 @@ void GPTM1_IRQHandler(void) {
 		wsShow();
 		startShow = FALSE;
 		i = 0;
+		startCount = TRUE;
 		sampleFlag = FALSE;
+	}
+	
+	if (startCount || initFlag == FALSE) {
+		time += 1;
+		if (i >= 128 && startShow == FALSE) {
+			time = 0;
+			startCount = FALSE;
+			gADC_CycleEndOfConversion = TRUE;
+		}
 	}
 	
 	if (TK_CHECK) {
