@@ -51,6 +51,32 @@
 
 
 /* Settings ------------------------------------------------------------------------------------------------*/
+
+/* Private function prototypes -----------------------------------------------------------------------------*/
+void NVIC_Configuration(void);
+void CKCU_Configuration(void);
+void GPIO_Configuration(void);
+void GPTM1_Configuration(void);
+void I2C_Configuration(void);
+void ADC_Configuration(void);
+void TM_Configuration(void);
+
+#if (ENABLE_CKOUT == 1)
+void CKOUTConfig(void);
+#endif
+
+void ledInit(void);
+u32 Touchkey_ButtonRead(void);
+void _I2C_Touchkey_AckPolling(void);
+void get_TKLR(void);
+void Slide(u32, u32, u8*);
+void Zoom(u32, u32, u8*);
+void wsUpdateMag(void);
+void ADC_MainRoutine(void);
+void RUN_FFT(void);
+static void delay(u32 count);
+
+/* Global variables ----------------------------------------------------------------------------------------*/
 /* Private types -------------------------------------------------------------------------------------------*/
 typedef union {
 	struct {
@@ -74,6 +100,8 @@ typedef union {
 	u16 Data;
 } TouchKey_TypeDef;
 
+u8 mode = 2;
+
 // Touch key
 const u8 zoom = 3, slide = 2, press = 1, none = 0;
 u8 slideValue = 24, zoomValue = 2;
@@ -82,6 +110,7 @@ TouchKey_TypeDef Touch;
 bool TK_CHECK = FALSE, TK_1SEC = FALSE;
 u8 TK_L = 0, TK_R = 0;
 u16 TK_COUNT = 0, i = 0;
+s16 j = 0;
 
 // WS2812B
 u8 ws_white[3] = {255, 255, 255}, ws_clean[3] = {0, 0, 0};
@@ -96,31 +125,6 @@ u8 wsLevelTM[16] = {0};
 // FFT
 #define TEST_LENGTH_SAMPLES 128
 
-/* Private function prototypes -----------------------------------------------------------------------------*/
-void NVIC_Configuration(void);
-void CKCU_Configuration(void);
-void GPIO_Configuration(void);
-void GPTM1_Configuration(void);
-void I2C_Configuration(void);
-void ADC_Configuration(void);
-void TM_Configuration(void);
-
-#if (ENABLE_CKOUT == 1)
-void CKOUTConfig(void);
-#endif
-
-u32 Touchkey_ButtonRead(void);
-void _I2C_Touchkey_AckPolling(void);
-void get_TKLR(void);
-void Slide(u32, u32, u8*);
-void Zoom(u32, u32, u8*);
-void wsUpdateMag(u8);
-void ADC_MainRoutine(void);
-void RUN_FFT(void);
-static void delay(u32 count);
-
-/* Private macro -------------------------------------------------------------------------------------------*/
-/* Global variables ----------------------------------------------------------------------------------------*/
 s32 gADC_Result;
 vu32 gADC_CycleEndOfConversion;
 /* -------------------------------------------------------------------
@@ -138,19 +142,19 @@ uint32_t fftSize = TEST_LENGTH_SAMPLES / 2;
 uint32_t ifftFlag = 0;
 uint32_t doBitReverse = 1;
 
-const u8 WS_LED[9][16] = {
-	{ 15,  14,  13,  12,  11,  10,   9,   8,   7,   6,   5,   4,   3,   2,   1,   0},
-	{ 16,  17,  18,  19,  20,  21,  22,  23,  24,  25,  26,  27,  28,  29,  30,  31},
-	{ 47,  46,  45,  44,  43,  42,  41,  40,  39,  38,  37,  36,  35,  34,  33,  32},
-	{ 48,  49,  50,  51,  52,  53,  54,  55,  56,  57,  58,  59,  60,  61,  62,  63},
-	{ 79,  78,  77,  76,  75,  74,  73,  72,  71,  70,  69,  68,  67,  66,  65,  64},
-	{ 80,  81,  82,  83,  84,  85,  86,  87,  88,  89,  90,  91,  92,  93,  94,  95},
-	{111, 110, 109, 108, 107, 106, 105, 104, 103, 102, 101, 100,  99,  98,  97,  96},
-	{112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127},
-	{143, 142, 141, 140, 139, 138, 137, 136, 135, 134, 133, 132, 131, 130, 129, 128}
-};
+//const u8 WS_LED[9][16] = {
+//	{ 15,  14,  13,  12,  11,  10,   9,   8,   7,   6,   5,   4,   3,   2,   1,   0},
+//	{ 16,  17,  18,  19,  20,  21,  22,  23,  24,  25,  26,  27,  28,  29,  30,  31},
+//	{ 47,  46,  45,  44,  43,  42,  41,  40,  39,  38,  37,  36,  35,  34,  33,  32},
+//	{ 48,  49,  50,  51,  52,  53,  54,  55,  56,  57,  58,  59,  60,  61,  62,  63},
+//	{ 79,  78,  77,  76,  75,  74,  73,  72,  71,  70,  69,  68,  67,  66,  65,  64},
+//	{ 80,  81,  82,  83,  84,  85,  86,  87,  88,  89,  90,  91,  92,  93,  94,  95},
+//	{111, 110, 109, 108, 107, 106, 105, 104, 103, 102, 101, 100,  99,  98,  97,  96},
+//	{112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127},
+//	{143, 142, 141, 140, 139, 138, 137, 136, 135, 134, 133, 132, 131, 130, 129, 128}
+//};
 
-s16 j = 0;
+u8 WS_LED[16][9];
 
 /* Private variables ---------------------------------------------------------------------------------------*/
 /* Global functions ----------------------------------------------------------------------------------------*/
@@ -160,13 +164,12 @@ s16 j = 0;
   ***********************************************************************************************************/
 int main(void) {
 	u32 uCounter;
-	u8 mode = 2;
 	
 	NVIC_Configuration();               /* NVIC configuration                                                 */
 	CKCU_Configuration();               /* System Related configuration                                       */
 	GPIO_Configuration();               /* GPIO Related configuration                                         */
 	RETARGET_Configuration();           /* Retarget Related configuration                                     */
-	
+	ledInit();
 	GPTM1_Configuration();
 	TM_Configuration();
 	I2C_Configuration();
@@ -188,7 +191,7 @@ int main(void) {
 				mode = 1;
 				i = 0;
 			}
-			wsUpdateMag(mode);
+			wsUpdateMag();
 			printf("\rmode = %d", mode);
 		}
 		
@@ -197,11 +200,11 @@ int main(void) {
 				TK_CHECK = TRUE;
 				Touch.Data = Touchkey_ButtonRead();
 				get_TKLR();
-				printf("\rStatus = %d, DATA = %04X, slideValue = %3d, zoomValue = %3d", status, Touch.Data, slideValue, zoomValue);
+//				printf("\rStatus = %d, DATA = %04X, slideValue = %3d, zoomValue = %3d", status, Touch.Data, slideValue, zoomValue);
 				if (status == slide) Slide(TK_L, TK_R, &slideValue);
 				else if (status == zoom) Zoom(TK_L, TK_R, &zoomValue);
 				
-				wsUpdateMag(mode);
+				wsUpdateMag();
 				
 				uCounter = (HSE_VALUE >> 4);
 				while (uCounter--);
@@ -216,17 +219,16 @@ int main(void) {
 			if (sampleFlag) {
 				for (j = 0; j < TEST_LENGTH_SAMPLES; j += 1) fftData[j] = ((float)InputSignal[j]) / 2048.0;
 				RUN_FFT();
-				if (mode == 2) {
-					wsUpdateMag(mode);
-					delay(300);
-				}
+				wsUpdateMag();
+				delay(300);
 			}
 		}
 	}
 }
 
 void NVIC_Configuration(void) {
-	NVIC_SetVectorTable(NVIC_VECTTABLE_FLASH, 0x0);     /* Set the Vector Table base location at 0x00000000   */
+	/* Set the Vector Table base location at 0x00000000   */
+	NVIC_SetVectorTable(NVIC_VECTTABLE_FLASH, 0x0);
 }
 
 void CKCU_Configuration(void) {
@@ -433,6 +435,27 @@ void assert_error(u8* filename, u32 uline) {
 #endif
 
 /* Private functions ---------------------------------------------------------------------------------------*/
+void ledInit() {
+	u8 i, j;
+//j=0 { 15,  16,  47,  48,  79,  80, 111, 112, 143},
+//    { 14,  17,        ...                       },
+//                      ...
+//j=15{  0,             ...                       }
+//       ^                                      ^
+//       i=0                                    i=7
+	for(i = 0; i < 8; i++) {
+		for(j = 0; j < 16; j++) {
+			if(i % 2 == 0) {
+				WS_LED[j][i] = i * 16 + (15 - j);
+			}else {
+				WS_LED[j][i] = i * 16 + j;
+			}
+			//printf("%4d,", WS_LED[j][i]);
+		}
+		//printf("\r\n");
+	}
+}
+
 u32 Touchkey_ButtonRead(void) {
 	u32 uData;
 
@@ -537,7 +560,7 @@ void Zoom(u32 L, u32 R, u8* Value) {
 	}
 }
 
-void wsUpdateMag(u8 mode) {
+void wsUpdateMag() {
 	u8 i, j;
 	
 	if (mode == 1) {
@@ -571,8 +594,8 @@ void wsUpdateMag(u8 mode) {
 		}
 		for (i = 0; i < 16; i += 1) {
 			for (j = 0; j < 8; j += 1) {
-				if (rows[i] == 1) wsSetColor(WS_LED[j][i], ws_white, ((float)slideValue) / 100.0);
-				else wsSetColor(WS_LED[j][i], ws_clean, 0);
+				if (rows[i] == 1) wsSetColor(WS_LED[i][j], ws_white, ((float)slideValue) / 100.0);
+				else wsSetColor(WS_LED[i][j], ws_clean, 0);
 			}
 		}
 	} else if (mode == 2) {
@@ -583,10 +606,10 @@ void wsUpdateMag(u8 mode) {
 				{128, 255, 0},
 				{200, 255, 0},
 				{255, 255, 0},
-				{200, 255, 0},
 				{255, 200, 0},
 				{255, 128, 0},
-				{255, 80, 0},
+				{255, 64, 0},
+				{255, 32, 0},
 				{255, 0, 0}
 		};
 		
@@ -601,19 +624,19 @@ void wsUpdateMag(u8 mode) {
 			else level = 8;
 			
 			for (j = 0; j < 8; j += 1) {
-				if (j < level) wsSetColor(WS_LED[j][i], musicColor[j], 0.3);
-				else wsSetColor(WS_LED[j][i], musicColor[j], 0);
+				//WS_LED[level][index]
+				if (j < level) wsSetColor(WS_LED[i][j], musicColor[j], 0.3);
+				else wsSetColor(WS_LED[i][j], musicColor[j], 0);
 				if(j == wsLevel[i] - 1)
-					wsSetColor(WS_LED[j][i], musicColor[j], 0.3);
+					wsSetColor(WS_LED[i][j], musicColor[j], 0.3);
 			}
 			
 			if(level > wsLevel[i]) {
 				wsLevel[i] = level;
-				wsLevelTM[i] = 30;
+				wsLevelTM[i] = 40;
 			}
 			if(wsLevelTM[i] == 0) {
 				if(wsLevel[i] >= level) wsLevel[i]--;
-//				wsLevel[i] = level;
 				wsLevelTM[i] = 8;
 			}
 		}
