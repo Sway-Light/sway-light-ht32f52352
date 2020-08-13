@@ -637,6 +637,7 @@ void wsUpdateMag() {
 			}
 		}
 	}
+	// test
 	
 	startShow = TRUE;
 }
