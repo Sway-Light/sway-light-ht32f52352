@@ -212,16 +212,27 @@ extern bool TK_CHECK, TK_1SEC;
 extern u8 TK_L, TK_R;
 extern u16 TK_COUNT;
 
+// Button
+	static bool btPrev = FALSE;
+	extern bool btPress;
+	extern u32 btTM;
+	extern bool btReleaseFlag;
+	extern bool longClick;
+
 //u32 time = 0;
 //bool startCount = FALSE;
 
 void GPTM1_IRQHandler(void) {
+	extern u8 mode;
+	//FFT & LED
 	extern bool startShow, sampleFlag, initFlag;
 	extern u8 wsLevelTM[16];
+	
 	u8 j = 0;
 	
 	TM_ClearFlag(HT_GPTM1, TM_FLAG_UEV);
 	
+	// LED
 	if (startShow == TRUE || initFlag == FALSE) {
 		wsShow();
 		startShow = FALSE;
@@ -242,7 +253,7 @@ void GPTM1_IRQHandler(void) {
 //			gADC_CycleEndOfConversion = TRUE;
 //		}
 //	}
-	
+	// Touch Key
 	if (TK_CHECK) {
 		if (TK_R - TK_L > 2) {
 			status = zoom;
@@ -258,6 +269,41 @@ void GPTM1_IRQHandler(void) {
 		} else {
 			TK_COUNT += 1;
 		}
+	}
+	
+	// Button press
+	if(btPress && btReleaseFlag == FALSE) {
+		btTM++;
+		if(btTM >= 500) {
+			// long click
+			longClick = TRUE;
+			btTM = 0;
+		}
+	}
+	if(btPress != btPrev) {
+		if(!btPress) {
+			if(longClick) {
+				printf("\r\nLong click");
+				if(mode != 0) {
+					mode = 0;
+					wsClearAll();
+					wsShow();
+					printf("\r\noff");
+				}else {
+					mode = 2;
+					i = 0;
+					printf("\r\non");
+				}
+			}else{
+				if (mode == 1) mode = 2;
+				else if (mode == 2) {
+					mode = 1;
+					i = 0;
+				}
+			}
+			btReleaseFlag = TRUE;
+		}
+		btPrev = btPress;
 	}
 }
 

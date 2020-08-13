@@ -124,37 +124,26 @@ u8 wsLevelTM[16] = {0};
 
 // FFT
 #define TEST_LENGTH_SAMPLES 128
-
-s32 gADC_Result;
-vu32 gADC_CycleEndOfConversion;
-/* -------------------------------------------------------------------
-* External Input and Output buffer Declarations for FFT Bin Example
-* ------------------------------------------------------------------- */
 bool sampleFlag = FALSE, startShow = FALSE, initFlag = FALSE;
 s32 InputSignal[TEST_LENGTH_SAMPLES];
 float32_t fftData[TEST_LENGTH_SAMPLES];
 static float32_t OutputSignal[TEST_LENGTH_SAMPLES / 2];
-
-/* ------------------------------------------------------------------
-* Global variables for FFT Bin Example
-* ------------------------------------------------------------------- */
 uint32_t fftSize = TEST_LENGTH_SAMPLES / 2;
 uint32_t ifftFlag = 0;
 uint32_t doBitReverse = 1;
 
-//const u8 WS_LED[9][16] = {
-//	{ 15,  14,  13,  12,  11,  10,   9,   8,   7,   6,   5,   4,   3,   2,   1,   0},
-//	{ 16,  17,  18,  19,  20,  21,  22,  23,  24,  25,  26,  27,  28,  29,  30,  31},
-//	{ 47,  46,  45,  44,  43,  42,  41,  40,  39,  38,  37,  36,  35,  34,  33,  32},
-//	{ 48,  49,  50,  51,  52,  53,  54,  55,  56,  57,  58,  59,  60,  61,  62,  63},
-//	{ 79,  78,  77,  76,  75,  74,  73,  72,  71,  70,  69,  68,  67,  66,  65,  64},
-//	{ 80,  81,  82,  83,  84,  85,  86,  87,  88,  89,  90,  91,  92,  93,  94,  95},
-//	{111, 110, 109, 108, 107, 106, 105, 104, 103, 102, 101, 100,  99,  98,  97,  96},
-//	{112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127},
-//	{143, 142, 141, 140, 139, 138, 137, 136, 135, 134, 133, 132, 131, 130, 129, 128}
-//};
+// ADC
+s32 gADC_Result;
+vu32 gADC_CycleEndOfConversion;
 
+// LED
 u8 WS_LED[16][9];
+
+// Button
+bool btPress = FALSE;
+bool btReleaseFlag = FALSE;
+bool longClick = FALSE;
+u32 btTM = 0;
 
 /* Private variables ---------------------------------------------------------------------------------------*/
 /* Global functions ----------------------------------------------------------------------------------------*/
@@ -185,14 +174,20 @@ int main(void) {
 	TM_Cmd(HT_GPTM0, ENABLE);
 	while (1) {
 		if (!GPIO_ReadInBit(HT_GPIOB, GPIO_PIN_1)) {
-			while (!GPIO_ReadInBit(HT_GPIOB, GPIO_PIN_1));
-			if (mode == 1) mode = 2;
-			else if (mode == 2) {
-				mode = 1;
-				i = 0;
+			btPress = TRUE;
+		}else {
+			if(btReleaseFlag) {
+				if(longClick){
+					longClick = FALSE;
+					btReleaseFlag = FALSE;
+				}else if(btReleaseFlag) {
+					wsUpdateMag();
+					printf("\r\nmode = %d", mode);
+				}
+				btReleaseFlag = FALSE;
 			}
-			wsUpdateMag();
-			printf("\rmode = %d", mode);
+			btPress = FALSE;
+			btTM = 0;
 		}
 		
 		if (mode == 1) {
@@ -222,6 +217,7 @@ int main(void) {
 				wsUpdateMag();
 				delay(300);
 			}
+		}else if(mode == 0) {
 		}
 	}
 }
@@ -614,13 +610,13 @@ void wsUpdateMag() {
 		};
 		
 		for (i = 0; i < 16; i += 1) {
-			if (OutputSignal[i*2 + 1] < 3) level = 1;
-			else if(OutputSignal[i*2 + 1] < 5) level = 2;
-			else if(OutputSignal[i*2 + 1] < 8) level = 3;
-			else if(OutputSignal[i*2 + 1] < 11) level = 4;
-			else if(OutputSignal[i*2 + 1] < 14) level = 5;
-			else if(OutputSignal[i*2 + 1] < 17) level = 6;
-			else if(OutputSignal[i*2 + 1] < 20) level = 7;
+			if (OutputSignal[i + 1] < 3) level = 1;
+			else if(OutputSignal[i + 1] < 5) level = 2;
+			else if(OutputSignal[i + 1] < 8) level = 3;
+			else if(OutputSignal[i + 1] < 11) level = 4;
+			else if(OutputSignal[i + 1] < 14) level = 5;
+			else if(OutputSignal[i + 1] < 17) level = 6;
+			else if(OutputSignal[i + 1] < 20) level = 7;
 			else level = 8;
 			
 			for (j = 0; j < 8; j += 1) {

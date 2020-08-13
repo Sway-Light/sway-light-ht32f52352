@@ -114,7 +114,7 @@ void wsShow(void) {
 
 void wsClearAll(void) {
 	u8 ws_clear[3] = {0};
-	for(ws_i = 0; ws_i < WS_PIXEL; ws_i++) wsSetColor(ws_i, ws_clear, 1);
+	for(ws_i = 0; ws_i < WS_PIXEL; ws_i++) wsSetColor(ws_i, ws_clear, 0);
 }
 
 void wsClearBetween(u8 startPixelNum, u8 endPixelNum) {
