@@ -8,21 +8,27 @@ TM_OutputInitTypeDef 		TM_OutputInitStructure;
 PDMACH_InitTypeDef 			PDMACH_InitStructure;
 HT_PDMA_TypeDef 				PDMA_TEST_Struct;
 
-static u32 WS2812[WS_PIXEL + 2][WS_24BITS];
-static u8 ws_i;
+u32 WS2812[WS_PIXEL + 3][WS_24BITS];
+//static u8 ws_i;
 
 bool didSetColor;
 
 void wsInit(void) {
+	u8 i = 0, j = 0;
 	wsCKCUConfig();
 	wsAFIOConfig();
 	wsPWMConfig();
 	wsNVICConfig();
 	MCTM_CHMOECmd(HT_MCTM0, ENABLE);
-	for(ws_i = 0; ws_i < WS_24BITS; ws_i++) {
-		WS2812[WS_PIXEL	+ 0][ws_i] = 0;
-		WS2812[WS_PIXEL + 1][ws_i] = 0;
-		WS2812[WS_PIXEL + 2][ws_i] = 0;
+	for(i = 0; i < WS_PIXEL; i++) {
+		for(j = 0; j < WS_24BITS; j++) {
+			WS2812[i][j] = WS_LOGIC_0;	
+		}
+	}
+	for(i = 0; i < WS_24BITS; i++) {
+		WS2812[WS_PIXEL	+ 0][i] = 0;
+		WS2812[WS_PIXEL	+ 1][i] = 0;
+		WS2812[WS_PIXEL	+ 2][i] = 0;
 	}
 	wsClearAll();
 }
@@ -113,8 +119,9 @@ void wsShow(void) {
 }
 
 void wsClearAll(void) {
+	u8 i = 0;
 	u8 ws_clear[3] = {0};
-	for(ws_i = 0; ws_i < WS_PIXEL; ws_i++) wsSetColor(ws_i, ws_clear, 0);
+	for(i = 0; i < WS_PIXEL; i++) wsSetColor(i, ws_clear, 0);
 }
 
 void wsClearBetween(u8 startPixelNum, u8 endPixelNum) {
@@ -124,10 +131,11 @@ void wsClearBetween(u8 startPixelNum, u8 endPixelNum) {
 }
 
 void wsBlinkAll(u32 wait) {
+	u8 i = 0;
 	u8 ws_white[3] = {255, 255, 255};
 	wait *= 10000;
 
-	for(ws_i = 0; ws_i < WS_PIXEL; ws_i++) wsSetColor(ws_i, ws_white, 0.1);
+	for(i = 0; i < WS_PIXEL; i++) wsSetColor(i, ws_white, 0.1);
 	wsShow();
 	while(wait--);
 	wsClearAll();

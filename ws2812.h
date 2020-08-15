@@ -2,7 +2,7 @@
 
 #define WS_RELOAD			(60)													// (48000000/800000)	
 #define WS_PRESCALER	0
-#define WS_PIXEL			128 														
+#define WS_PIXEL			144 														
 #define WS_LOGIC_1		38														// High Bit Duty
 #define WS_LOGIC_0		19														// Low Bit Duty
 #define	WS_24BITS			24														// Number of Bits of each LED

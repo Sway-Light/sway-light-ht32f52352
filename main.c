@@ -158,15 +158,16 @@ int main(void) {
 	CKCU_Configuration();               /* System Related configuration                                       */
 	GPIO_Configuration();               /* GPIO Related configuration                                         */
 	RETARGET_Configuration();           /* Retarget Related configuration                                     */
+	
 	ledInit();
+	wsInit();
+	delay(1000);
+	wsBlinkAll(1000);
+	
 	GPTM1_Configuration();
 	TM_Configuration();
 	I2C_Configuration();
 	ADC_Configuration();
-	
-	wsInit();
-	
-	wsBlinkAll(30);
 	
 	initFlag = TRUE;
 	
@@ -215,7 +216,7 @@ int main(void) {
 				for (j = 0; j < TEST_LENGTH_SAMPLES; j += 1) fftData[j] = ((float)InputSignal[j]) / 2048.0;
 				RUN_FFT();
 				wsUpdateMag();
-				delay(300);
+//				delay(300);
 			}
 		}else if(mode == 0) {
 		}
@@ -283,7 +284,7 @@ void GPTM1_Configuration(void) {
 	
 	TM_TimeBaseStructInit(&TimeBaseInit);                // Init GPTM1 time-base
 	TimeBaseInit.CounterMode = TM_CNT_MODE_UP;           // up count mode
-	TimeBaseInit.CounterReload = 36000;                  // interrupt in every 500us
+	TimeBaseInit.CounterReload = 18000;                  // interrupt in every 500us
 	TimeBaseInit.Prescaler = 5;
 	TimeBaseInit.PSCReloadTime = TM_PSC_RLD_IMMEDIATE;   // reload immediately
 	TM_TimeBaseInit(HT_GPTM1, &TimeBaseInit);            // write the parameters into GPTM1
@@ -439,16 +440,16 @@ void ledInit() {
 //j=15{  0,             ...                       }
 //       ^                                      ^
 //       i=0                                    i=7
-	for(i = 0; i < 8; i++) {
+	for(i = 0; i < 9; i++) {
 		for(j = 0; j < 16; j++) {
 			if(i % 2 == 0) {
 				WS_LED[j][i] = i * 16 + (15 - j);
 			}else {
 				WS_LED[j][i] = i * 16 + j;
 			}
-			//printf("%4d,", WS_LED[j][i]);
+			printf("%4d,", WS_LED[j][i]);
 		}
-		//printf("\r\n");
+		printf("\r\n");
 	}
 }
 
@@ -589,7 +590,7 @@ void wsUpdateMag() {
 			}
 		}
 		for (i = 0; i < 16; i += 1) {
-			for (j = 0; j < 8; j += 1) {
+			for (j = 0; j < 9; j += 1) {
 				if (rows[i] == 1) wsSetColor(WS_LED[i][j], ws_white, ((float)slideValue) / 100.0);
 				else wsSetColor(WS_LED[i][j], ws_clean, 0);
 			}
@@ -617,10 +618,11 @@ void wsUpdateMag() {
 			else if(OutputSignal[i + 1] < 14) level = 5;
 			else if(OutputSignal[i + 1] < 17) level = 6;
 			else if(OutputSignal[i + 1] < 20) level = 7;
-			else level = 8;
+			else if(OutputSignal[i + 1] < 23) level = 8;
+			else level = 9;
 			
-			for (j = 0; j < 8; j += 1) {
-				//WS_LED[level][index]
+			for (j = 0; j < 9; j += 1) {
+				//WS_LED[index][level]
 				if (j < level) wsSetColor(WS_LED[i][j], musicColor[j], 0.3);
 				else wsSetColor(WS_LED[i][j], musicColor[j], 0);
 				if(j == wsLevel[i] - 1)
@@ -629,7 +631,7 @@ void wsUpdateMag() {
 			
 			if(level > wsLevel[i]) {
 				wsLevel[i] = level;
-				wsLevelTM[i] = 40;
+				wsLevelTM[i] = 50;
 			}
 			if(wsLevelTM[i] == 0) {
 				if(wsLevel[i] >= level) wsLevel[i]--;
