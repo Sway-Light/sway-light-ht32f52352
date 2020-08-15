@@ -29,6 +29,7 @@
 #include "ht32.h"
 
 #include "ws2812.h"
+#include "DFPlayer.h"
 
 /** @addtogroup Project_Template Project Template
   * @{
@@ -423,9 +424,24 @@ void GPTM1_IRQHandler(void) {
  * @brief   This function handles UART interrupt.
  * @retval  None
  ************************************************************************************************************/
-//void UART0_IRQHandler(void)
-//{
-//}
+void UART0_IRQHandler(void) {
+	u8 Tx_Data;
+	static u8 mp3_TX = 0, mp3_RX = 0;
+	if (USART_GetFlagStatus(HT_UART0, USART_INT_TXDE) && USART_GetFlagStatus(HT_UART0, USART_FLAG_TXDE)) {
+		if (mp3_TX < 10) {
+			Tx_Data = send_buf[mp3_TX];
+			USART_SendData(HT_UART0, Tx_Data);
+		} else {
+			USART_IntConfig(HT_UART0, USART_INT_TXDE, DISABLE); // After Transmitting Data is completed, disable the interrupt of UART0.
+		}
+	}
+	
+	if (USART_GetFlagStatus(HT_UART0, USART_FLAG_RXDR)) {
+		return_buf[mp3_RX] = USART_ReceiveData(HT_UART0);
+		if (mp3_RX >= 9) mp3_RX = 0;
+		else mp3_RX += 1;
+	}
+}
 
 /*********************************************************************************************************//**
  * @brief   This function handles UART interrupt.

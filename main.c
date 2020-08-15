@@ -34,6 +34,7 @@
 #include "arm_const_structs.h"
 
 #include "ws2812.h"
+#include "DFPlayer.h"
 
 #include "_ht32_project_source.h"
 
@@ -168,22 +169,27 @@ int main(void) {
 	TM_Configuration();
 	I2C_Configuration();
 	ADC_Configuration();
-	
+
+	mp3UART_Configuration();
+	mp3ResetModule();
+	mp3SetDevice(1); // SD Card
+
 	initFlag = TRUE;
 	
 	ADC_Cmd(HT_ADC0, ENABLE);
 	TM_Cmd(HT_GPTM0, ENABLE);
+	
 	while (1) {
 		if (!GPIO_ReadInBit(HT_GPIOB, GPIO_PIN_1)) {
 			btPress = TRUE;
-		}else {
-			if(btReleaseFlag) {
-				if(longClick){
+		} else {
+			if (btReleaseFlag) {
+				if (longClick) {
 					longClick = FALSE;
 					btReleaseFlag = FALSE;
-				}else if(btReleaseFlag) {
+				} else if (btReleaseFlag) {
 					wsUpdateMag();
-					printf("\r\nmode = %d", mode);
+//					printf("\r\nmode = %d", mode);
 				}
 				btReleaseFlag = FALSE;
 			}
@@ -210,7 +216,7 @@ int main(void) {
 				TK_COUNT = 0;
 				status = none;
 			}
-		}else if(mode == 2) {
+		} else if (mode == 2) {
 			ADC_MainRoutine();
 			if (sampleFlag) {
 				for (j = 0; j < TEST_LENGTH_SAMPLES; j += 1) fftData[j] = ((float)InputSignal[j]) / 2048.0;
@@ -218,7 +224,7 @@ int main(void) {
 				wsUpdateMag();
 //				delay(300);
 			}
-		}else if(mode == 0) {
+		} else if (mode == 0) {
 		}
 	}
 }
@@ -327,7 +333,7 @@ void ADC_Configuration(void) {
 	}
 
 	/* Configure AFIO mode as ADC function                                                                    */
-	AFIO_GPxConfig(GPIO_PA, AFIO_PIN_6, AFIO_MODE_2);
+	AFIO_GPxConfig(GPIO_PA, AFIO_PIN_6, AFIO_FUN_ADC0);
 
 	{ /* ADC related settings                                                                                 */
 		/* CK_ADC frequency is set to (CK_AHB / 32)                                                             */
