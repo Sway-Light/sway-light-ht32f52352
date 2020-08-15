@@ -432,13 +432,35 @@ void GPTM1_IRQHandler(void) {
 //void USART1_IRQHandler(void)
 //{
 //}
-
+void popCmdQueue(u8 *queue, u8 *queueSize) {
+	u8 i;
+	for(i = 0; i < *queueSize - 1; i++) {
+		queue[i] = queue[i + 1];
+	}
+	(*queueSize)--;
+//	printf("queueSize: %d\r\n", *queueSize);
+//	printf("pop\r\n");
+}
 /*********************************************************************************************************//**
  * @brief   This function handles UART interrupt.
  * @retval  None
  ************************************************************************************************************/
-//void UART0_IRQHandler(void) {
-//}
+extern u8 mp3CmdQueue[QUEUE_MAX_SIZE];
+extern u8 queueSize;
+void UART0_IRQHandler(void) {
+	if (USART_GetIntStatus(HT_UART0, USART_INT_TXDE) && USART_GetFlagStatus(HT_UART0, USART_FLAG_TXDE)) {
+//		printf("uart\r\n");
+		if(queueSize > 0) {
+//			printf("queue size: %d\r\n", queueSize);
+			USART_SendData(HT_UART0, mp3CmdQueue[0]);
+//			printf("%x " ,mp3CmdQueue[0]);
+			popCmdQueue(mp3CmdQueue, &queueSize);
+		}else {
+//			printf("\r\n");
+			USART_IntConfig(HT_UART0, USART_INT_TXDE, DISABLE); // After Transmitting Data is completed, disable the interrupt of UART0.
+		}
+	}
+}
 
 /*********************************************************************************************************//**
  * @brief   This function handles UART interrupt.

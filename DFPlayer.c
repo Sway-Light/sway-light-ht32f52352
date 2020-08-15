@@ -33,22 +33,24 @@ void mp3FillChecksum(void) {
 	send_buf[8] = (u8)checksum;
 }
 
-void mp3SendCmd(u8 cmd, u16 high_arg, u16 low_arg) {
-	u8 Tx_Data;
+void mp3SendCmd(u8 *cmdQueue, u8 *queueSize, u8 cmd, u16 high_arg, u16 low_arg) {
+	u8 i;
+	if(*queueSize + 10 > QUEUE_MAX_SIZE) return;
 	
 	send_buf[3] = cmd;
 	send_buf[5] = high_arg;
 	send_buf[6] = low_arg;
 	mp3FillChecksum();
-	
-//	USART_IntConfig(HT_UART0, USART_INT_TXDE, ENABLE); // Enable the TX inturrupt when data is ready to be transmitted.
-	
-	for(mp3_i = 0; mp3_i < 10; mp3_i++) {
-		Tx_Data = send_buf[mp3_i];
-		USART_SendData(HT_UART0, Tx_Data);
-		while(USART_GetFlagStatus(HT_UART0, USART_FLAG_TXC) == RESET);
+	for(i = 0; i < 10; i++) {
+		cmdQueue[i + *queueSize] = send_buf[i];
 	}
-	
+	(*queueSize) += 10;
+	USART_IntConfig(HT_UART0, USART_INT_TXDE, ENABLE); // Enable the TX inturrupt when data is ready to be transmitted.
+//	for(mp3_i = 0; mp3_i < 10; mp3_i++) {
+//		Tx_Data = send_buf[mp3_i];
+//		USART_SendData(HT_UART0, Tx_Data);
+//		while(USART_GetFlagStatus(HT_UART0, USART_FLAG_TXC) == RESET);
+//	}
 }
 
 void mp3ReceiveCmd(void) {
@@ -81,8 +83,8 @@ void mp3ReceiveCmd(void) {
 	}
 }
 
-void mp3ResetModule(void) {
-	mp3SendCmd(0x0C, 0, 0);
+void mp3ResetModule(u8 *cmdQueue, u8 *queueSize) {
+	mp3SendCmd(cmdQueue, queueSize, 0x0C, 0, 0);
 	
 	#if(mp3Debug == 1)
 	printf("mp3Debug: %-14s ", "mp3ResetModule");
@@ -92,8 +94,8 @@ void mp3ResetModule(void) {
 }
 
 //0x09 set device 0/1/2/3/4/ U/SD/AUX/SLEEP/FLASH
-void mp3SetDevice(u8 device) {
-	mp3SendCmd(0x09, 0, device);
+void mp3SetDevice(u8 *cmdQueue, u8 *queueSize, u8 device) {
+	mp3SendCmd(cmdQueue, queueSize, 0x09, 0, device);
 	
 	#if(mp3Debug == 1)
 	printf("mp3Debug: %-14s ", "mp3SetDevice");
@@ -102,9 +104,9 @@ void mp3SetDevice(u8 device) {
 	#endif
 }
 
-void mp3Play(u8 musicNum) {
+void mp3Play(u8 *cmdQueue, u8 *queueSize, u8 musicNum) {
 	
-	mp3SendCmd(0x0F, 0x01, musicNum);
+	mp3SendCmd(cmdQueue, queueSize, 0x0F, 0x01, musicNum);
 	
 	#if(mp3Debug == 1)
 	printf("mp3Debug: %-14s ", "mp3Play");
@@ -113,8 +115,8 @@ void mp3Play(u8 musicNum) {
 	#endif
 }
 
-void mp3Continue(void) {
-	mp3SendCmd(0x0D, 0, 0);
+void mp3Continue(u8 *cmdQueue, u8 *queueSize) {
+	mp3SendCmd(cmdQueue, queueSize, 0x0D, 0, 0);
 	
 	#if(mp3Debug == 1)
 	printf("mp3Debug: %-14s ", "mp3Continue");
@@ -123,8 +125,8 @@ void mp3Continue(void) {
 	#endif
 }
 
-void mp3Next(void) {
-	mp3SendCmd(0x01, 0, 0);
+void mp3Next(u8 *cmdQueue, u8 *queueSize) {
+	mp3SendCmd(cmdQueue, queueSize, 0x01, 0, 0);
 	
 	#if(mp3Debug == 1)
 	printf("mp3Debug: %-14s ", "mp3Next");
@@ -133,8 +135,8 @@ void mp3Next(void) {
 	#endif
 }
 
-void mp3Prev(void) {
-	mp3SendCmd(0x02, 0, 0);
+void mp3Prev(u8 *cmdQueue, u8 *queueSize) {
+	mp3SendCmd(cmdQueue, queueSize, 0x02, 0, 0);
 	
 	#if(mp3Debug == 1)
 	printf("mp3Debug: %14s ", "mp3Prev");
@@ -143,8 +145,8 @@ void mp3Prev(void) {
 	#endif
 }
 
-void mp3SetVolume(u8 volume) {
-	mp3SendCmd(0x06, 0, volume);
+void mp3SetVolume(u8 *cmdQueue, u8 *queueSize, u8 volume) {
+	mp3SendCmd(cmdQueue, queueSize, 0x06, 0, volume);
 	
 	#if(mp3Debug == 1)
 	printf("mp3Debug: %-14s ", "mp3SetVolume");
@@ -153,8 +155,8 @@ void mp3SetVolume(u8 volume) {
 	#endif
 }
 
-void mp3Pause(void) {
-	mp3SendCmd(0x0E, 0, 0);
+void mp3Pause(u8 *cmdQueue, u8 *queueSize) {
+	mp3SendCmd(cmdQueue, queueSize, 0x0E, 0, 0);
 	
 	#if(mp3Debug == 1)
 	printf("mp3Debug: %-14s ", "mp3Pause");
@@ -163,8 +165,8 @@ void mp3Pause(void) {
 	#endif
 }
 
-void mp3Stop(void) {
-	mp3SendCmd(0x16, 0, 0);
+void mp3Stop(u8 *cmdQueue, u8 *queueSize) {
+	mp3SendCmd(cmdQueue, queueSize, 0x16, 0, 0);
 	
 	#if(mp3Debug == 1)
 	printf("mp3Debug: %-14s ", "mp3Stop");
@@ -193,10 +195,9 @@ void mp3UART_Configuration(void) {
 	USART_InitStructure.USART_Mode = USART_MODE_NORMAL;
 	USART_Init(HT_UART0, &USART_InitStructure);
 	
-//	NVIC_EnableIRQ(UART0_IRQn);
-//	
-//	USART_IntConfig(HT_UART0, USART_INT_RXDR, ENABLE);
-	
+	NVIC_EnableIRQ(UART0_IRQn);
+	USART_IntConfig(HT_UART0, USART_INT_RXDR, ENABLE);
+	USART_IntConfig(HT_UART0, USART_INT_TXDE, ENABLE);
 	USART_TxCmd(HT_UART0, ENABLE);
 	USART_RxCmd(HT_UART0, ENABLE);
 }

@@ -159,6 +159,12 @@ bool btReleaseFlag = FALSE;
 bool longClick = FALSE;
 u32 btTM = 0;
 
+// mp3
+//static u8 sendData[10] = {0x7E, 0xFF, 0x06, 0x0C, 0x00, 0x00, 0x00, 0xFE, 0xEF, 0xEF};
+//static u8 returnData[10];
+u8 mp3CmdQueue[QUEUE_MAX_SIZE];
+u8 queueSize = 0;
+
 /* Private variables ---------------------------------------------------------------------------------------*/
 /* Global functions ----------------------------------------------------------------------------------------*/
 /*********************************************************************************************************//**
@@ -173,42 +179,47 @@ int main(void) {
 	GPIO_Configuration();               /* GPIO Related configuration                                         */
 	RETARGET_Configuration();           /* Retarget Related configuration                                     */
 	
-	mp3UART_Configuration();
-	
 	ledInit();
 	wsInit();
-	delay(1000);
 	wsBlinkAll(1000);
-	
+//	delay(10000000);
+//		
+	GPTM1_Configuration();
+	TM_Configuration();
 	I2C_Configuration();
 	ADC_Configuration();
-	TM_Configuration();
-	GPTM1_Configuration();
-
-	initFlag = TRUE;
 	
+	initFlag = TRUE;
 	ADC_Cmd(HT_ADC0, ENABLE);
 	TM_Cmd(HT_GPTM0, ENABLE);
+	TM_Cmd(HT_GPTM1, ENABLE);
 	
-	mp3ResetModule();
-	mp3SetDevice(1); // SD Card
-	delay(10000000);
-	printf("test");
-	mp3SetVolume(20);
-	mp3Play(1);
+	mp3UART_Configuration();
+	mp3ResetModule(mp3CmdQueue, &queueSize);
+	mp3SetDevice(mp3CmdQueue, &queueSize, 1); // SD Card
+	mp3SetVolume(mp3CmdQueue, &queueSize, 20);
+	mp3Play(mp3CmdQueue, &queueSize, 1);
 	
 	while (1) {
 		if (mBtAction == btClick) {
+			static bool flag = TRUE;
 			mBtAction = btNone;
 			printf("click\r\n");
-			mp3SetVolume(20);
-			mp3Play(1);
+			if(flag) {
+				flag = FALSE;
+				mp3SetVolume(mp3CmdQueue, &queueSize, 20);
+				mp3Play(mp3CmdQueue, &queueSize, 1);
+			}else {
+				flag = TRUE;
+				mp3SetVolume(mp3CmdQueue, &queueSize, 20);
+				mp3Play(mp3CmdQueue, &queueSize, 2);
+			}
 //			if (mode == 1) mode = 2;
 //			else if (mode == 2) {
 //				mode = 1;
 //				adcIndex = 0;
 //			}
-			wsUpdateMag();
+//			wsUpdateMag();
 		}else if(mBtAction == btLongClick) {
 			mBtAction = btNone;
 			printf("long click\r\n");
@@ -249,9 +260,9 @@ int main(void) {
 				for (j = 0; j < TEST_LENGTH_SAMPLES; j += 1) fftData[j] = ((float)InputSignal[j]) / 2048.0;
 				RUN_FFT();
 				wsUpdateMag();
-//				delay(300);
 			}
 		} else if (mode == 0) {
+			
 		}
 	}
 }
@@ -323,7 +334,6 @@ void GPTM1_Configuration(void) {
 	TM_TimeBaseInit(HT_GPTM1, &TimeBaseInit);            // write the parameters into GPTM1
 	TM_ClearFlag(HT_GPTM1, TM_FLAG_UEV);                 // Clear Update Event Interrupt flag
 	TM_IntConfig(HT_GPTM1, TM_INT_UEV, ENABLE);          // interrupt by GPTM update
-	TM_Cmd(HT_GPTM1, ENABLE);
 	
 	NVIC_EnableIRQ(GPTM1_IRQn);
 }
