@@ -273,29 +273,30 @@ void GPTM1_IRQHandler(void) {
 	}
 	
 	// Button press
-	if(btPress && btReleaseFlag == FALSE) {
+	if (btPress && btReleaseFlag == FALSE) {
 		btTM++;
-		if(btTM >= 500) {
+		if (btTM >= 500) {
 			// long click
 			longClick = TRUE;
 			btTM = 0;
+			printf("\r\nLong click");
 		}
 	}
-	if(btPress != btPrev) {
-		if(!btPress) {
-			if(longClick) {
-				printf("\r\nLong click");
-				if(mode != 0) {
+	if (btPress != btPrev) {
+		if (!btPress) {
+			if (longClick) {
+				
+				if (mode != 0) {
 					mode = 0;
 					wsClearAll();
 					wsShow();
 					printf("\r\noff");
-				}else {
+				} else {
 					mode = 2;
 					i = 0;
 					printf("\r\non");
 				}
-			}else{
+			} else {
 				if (mode == 1) mode = 2;
 				else if (mode == 2) {
 					mode = 1;
@@ -424,24 +425,8 @@ void GPTM1_IRQHandler(void) {
  * @brief   This function handles UART interrupt.
  * @retval  None
  ************************************************************************************************************/
-void UART0_IRQHandler(void) {
-	u8 Tx_Data;
-	static u8 mp3_TX = 0, mp3_RX = 0;
-	if (USART_GetFlagStatus(HT_UART0, USART_INT_TXDE) && USART_GetFlagStatus(HT_UART0, USART_FLAG_TXDE)) {
-		if (mp3_TX < 10) {
-			Tx_Data = send_buf[mp3_TX];
-			USART_SendData(HT_UART0, Tx_Data);
-		} else {
-			USART_IntConfig(HT_UART0, USART_INT_TXDE, DISABLE); // After Transmitting Data is completed, disable the interrupt of UART0.
-		}
-	}
-	
-	if (USART_GetFlagStatus(HT_UART0, USART_FLAG_RXDR)) {
-		return_buf[mp3_RX] = USART_ReceiveData(HT_UART0);
-		if (mp3_RX >= 9) mp3_RX = 0;
-		else mp3_RX += 1;
-	}
-}
+//void UART0_IRQHandler(void) {
+//}
 
 /*********************************************************************************************************//**
  * @brief   This function handles UART interrupt.

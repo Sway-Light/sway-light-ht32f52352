@@ -1,9 +1,6 @@
 #include "ht32.h"
 
-#define mp3Debug	0
-
-static u8 send_buf[10] = {0x7E, 0xFF, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xEF};
-static u8 return_buf[10];
+#define mp3Debug	1
 
 u16 mp3GetChecksum(u8*);
 

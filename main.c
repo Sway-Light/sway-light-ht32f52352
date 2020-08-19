@@ -160,24 +160,27 @@ int main(void) {
 	GPIO_Configuration();               /* GPIO Related configuration                                         */
 	RETARGET_Configuration();           /* Retarget Related configuration                                     */
 	
+	mp3UART_Configuration();
+	
 	ledInit();
 	wsInit();
 	delay(1000);
 	wsBlinkAll(1000);
 	
-	GPTM1_Configuration();
-	TM_Configuration();
 	I2C_Configuration();
 	ADC_Configuration();
-
-	mp3UART_Configuration();
-	mp3ResetModule();
-	mp3SetDevice(1); // SD Card
+	TM_Configuration();
+	GPTM1_Configuration();
 
 	initFlag = TRUE;
 	
 	ADC_Cmd(HT_ADC0, ENABLE);
 	TM_Cmd(HT_GPTM0, ENABLE);
+	
+	mp3ResetModule();
+	mp3SetDevice(1); // SD Card
+	mp3SetVolume(20);
+	mp3Play(1);
 	
 	while (1) {
 		if (!GPIO_ReadInBit(HT_GPIOB, GPIO_PIN_1)) {
@@ -187,9 +190,12 @@ int main(void) {
 				if (longClick) {
 					longClick = FALSE;
 					btReleaseFlag = FALSE;
+					
+					mp3SetVolume(20);
+					mp3Play(1);
 				} else if (btReleaseFlag) {
 					wsUpdateMag();
-//					printf("\r\nmode = %d", mode);
+					printf("\r\nmode = %d", mode);
 				}
 				btReleaseFlag = FALSE;
 			}
@@ -296,7 +302,7 @@ void GPTM1_Configuration(void) {
 	TM_TimeBaseInit(HT_GPTM1, &TimeBaseInit);            // write the parameters into GPTM1
 	TM_ClearFlag(HT_GPTM1, TM_FLAG_UEV);                 // Clear Update Event Interrupt flag
 	TM_IntConfig(HT_GPTM1, TM_INT_UEV, ENABLE);          // interrupt by GPTM update
-	TM_Cmd(HT_GPTM1, ENABLE);                            // enable the counter 1
+	TM_Cmd(HT_GPTM1, ENABLE);
 	
 	NVIC_EnableIRQ(GPTM1_IRQn);
 }
@@ -453,9 +459,9 @@ void ledInit() {
 			}else {
 				WS_LED[j][i] = i * 16 + j;
 			}
-			printf("%4d,", WS_LED[j][i]);
+//			printf("%4d,", WS_LED[j][i]);
 		}
-		printf("\r\n");
+//		printf("\r\n");
 	}
 }
 

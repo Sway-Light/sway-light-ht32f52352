@@ -14,6 +14,9 @@
 
 u8 mp3_i;
 
+static u8 send_buf[10] = {0x7E, 0xFF, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xEF};
+static u8 return_buf[10];
+
 USART_InitTypeDef USART_InitStructure;
 
 u16 mp3GetChecksum(u8* buf){
@@ -31,20 +34,20 @@ void mp3FillChecksum(void) {
 }
 
 void mp3SendCmd(u8 cmd, u16 high_arg, u16 low_arg) {
-//	u8 Tx_Data;
+	u8 Tx_Data;
 	
 	send_buf[3] = cmd;
 	send_buf[5] = high_arg;
 	send_buf[6] = low_arg;
 	mp3FillChecksum();
 	
-	USART_IntConfig(HT_UART0, USART_INT_TXDE, ENABLE); // Enable the TX inturrupt when data is ready to be transmitted.
+//	USART_IntConfig(HT_UART0, USART_INT_TXDE, ENABLE); // Enable the TX inturrupt when data is ready to be transmitted.
 	
-//	for(mp3_i = 0; mp3_i < 10; mp3_i++) {
-//		Tx_Data = send_buf[mp3_i];
-//		USART_SendData(HT_UART0, Tx_Data);
-//		while(USART_GetFlagStatus(HT_UART0, USART_FLAG_TXC) == RESET);
-//	}
+	for(mp3_i = 0; mp3_i < 10; mp3_i++) {
+		Tx_Data = send_buf[mp3_i];
+		USART_SendData(HT_UART0, Tx_Data);
+		while(USART_GetFlagStatus(HT_UART0, USART_FLAG_TXC) == RESET);
+	}
 	
 }
 
@@ -190,9 +193,9 @@ void mp3UART_Configuration(void) {
 	USART_InitStructure.USART_Mode = USART_MODE_NORMAL;
 	USART_Init(HT_UART0, &USART_InitStructure);
 	
-	NVIC_EnableIRQ(UART0_IRQn);
-	
-	USART_IntConfig(HT_UART0, USART_INT_RXDR, ENABLE);
+//	NVIC_EnableIRQ(UART0_IRQn);
+//	
+//	USART_IntConfig(HT_UART0, USART_INT_RXDR, ENABLE);
 	
 	USART_TxCmd(HT_UART0, ENABLE);
 	USART_RxCmd(HT_UART0, ENABLE);
