@@ -7,14 +7,9 @@
 #define WS_LOGIC_0		19														// Low Bit Duty
 #define	WS_24BITS			24														// Number of Bits of each LED
 #define WS_BLOCK			((WS_PIXEL + 3) * WS_24BITS)	// PDMA transfer blocks
-
-#define WS_GENERAL		80
-#define WS_GUIDE			81
-#define WS_GAME				82
-#define WS_EXIT				10
-#define WS_BLINK			18 
-#define WS_BREATH			50                                                    
-
+                                                 
+#define WS_LEV_SIZE   16
+#define WS_FRQ_SIZE    9
 
 //extern u8 ws_green[];
 //extern u8 ws_blue[];
