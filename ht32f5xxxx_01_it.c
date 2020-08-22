@@ -30,6 +30,7 @@
 
 #include "ws2812.h"
 #include "DFPlayer.h"
+#include "74HC4067.h"
 
 /** @addtogroup Project_Template Project Template
   * @{

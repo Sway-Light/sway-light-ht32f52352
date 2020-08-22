@@ -35,6 +35,7 @@
 
 #include "ws2812.h"
 #include "DFPlayer.h"
+#include "74HC4067.h"
 
 #include "_ht32_project_source.h"
 
@@ -194,9 +195,16 @@ int main(void) {
 	TM_Cmd(HT_GPTM0, ENABLE);
 	TM_Cmd(HT_GPTM1, ENABLE);
 	
+	/* Analog signal setup */
+	analogSwitcherSetup();
+	asSetEnable(TRUE);
+	asSetSignal(1);
+	
+	/* UART setup */ 
 	mp3UART_Configuration();
 	mp3ResetModule(mp3CmdQueue, &queueSize);
 	mp3SetDevice(mp3CmdQueue, &queueSize, 1); // SD Card
+	delay(100000);
 	mp3SetVolume(mp3CmdQueue, &queueSize, 20);
 	mp3Play(mp3CmdQueue, &queueSize, 1);
 	
@@ -206,10 +214,12 @@ int main(void) {
 			mBtAction = btNone;
 			printf("click\r\n");
 			if(flag) {
+				asSetSignal(1);
 				flag = FALSE;
 				mp3SetVolume(mp3CmdQueue, &queueSize, 20);
 				mp3Play(mp3CmdQueue, &queueSize, 1);
 			}else {
+				asSetSignal(0);
 				flag = TRUE;
 				mp3SetVolume(mp3CmdQueue, &queueSize, 20);
 				mp3Play(mp3CmdQueue, &queueSize, 2);
