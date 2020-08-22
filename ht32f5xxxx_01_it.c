@@ -170,6 +170,7 @@ void SysTick_Handler(void) {
  * @retval  None
  ************************************************************************************************************/
 extern vu32 gADC_CycleEndOfConversion;
+extern u8 slideValue;
 
 void ADC_IRQHandler(void) {
 	extern u32 gADC_Result;
@@ -179,7 +180,6 @@ void ADC_IRQHandler(void) {
 
 	if (ADC_GetIntStatus(HT_ADC0, ADC_INT_CYCLE_EOC) == SET) {
 		ADC_ClearIntPendingBit(HT_ADC0, ADC_FLAG_CYCLE_EOC);
-//		if (i < 128) 
 		gADC_CycleEndOfConversion = TRUE;
 		gADC_Result = (HT_ADC0->DR[0] & 0x0FFF) - 2048;
 		gADC_Result *= 32;
@@ -232,8 +232,10 @@ extern u32 btTM;
 
 //u32 time = 0;
 //bool startCount = FALSE;
+bool extern touchKeyDelayFlag;
 
 void GPTM1_IRQHandler(void) {
+	static u8 touchKeyDelayTM = 0;
 	extern u8 mode;
 	//FFT & LED
 	extern bool startShow, sampleFlag, initFlag;
@@ -266,6 +268,11 @@ void GPTM1_IRQHandler(void) {
 //		}
 //	}
 	// Touch Key
+	touchKeyDelayTM++;
+	if(touchKeyDelayTM > 20){
+		touchKeyDelayFlag = TRUE;
+		touchKeyDelayTM = 0;
+	}
 	if (TK_CHECK) {
 		if (TK_R - TK_L > 2) {
 			status = zoom;

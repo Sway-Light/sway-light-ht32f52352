@@ -133,10 +133,11 @@ u8 ws_white[3] = {255, 255, 255}, ws_clean[3] = {0, 0, 0};
 u8 wsLevel[16] = {1};
 u8 wsLevelTM[16] = {0};
 
-// Touch key I2C
+// Touch key
 #define I2C_TOUCHKEY_SPEED         (50000)          /*!< I2C speed                                          */
 #define I2C_TOUCHKEY_DEV_ADDR      (0x50)           /*!< I2C device address                                 */
 #define KEYSTATUS_CMD              (0x08)
+bool touchKeyDelayFlag = FALSE;
 
 // FFT
 #define TEST_LENGTH_SAMPLES 128
@@ -253,7 +254,7 @@ int main(void) {
 			}
 		}
 		
-		if (mode == 1) {
+		if (touchKeyDelayFlag) {
 			if (!GPIO_ReadInBit(HT_GPIOC, GPIO_PIN_0)) {
 				TK_CHECK = TRUE;
 				Touch.Data = Touchkey_ButtonRead();
@@ -263,16 +264,18 @@ int main(void) {
 				else if (status == zoom) Zoom(TK_L, TK_R, &zoomValue);
 				
 				wsUpdateMag();
-				
-				uCounter = (HSE_VALUE >> 6);
-				while (uCounter--);
+				touchKeyDelayFlag = FALSE;
+//				uCounter = (HSE_VALUE >> 6);
+//				printf("%d\r\n", uCounter);
+//				while (uCounter--);
 			} else {
 				TK_CHECK = FALSE;
 				TK_1SEC = TRUE;
 				TK_COUNT = 0;
 				status = none;
 			}
-		} else if (mode == 2) {
+		}
+		if (mode == 2) {
 			ADC_MainRoutine();
 			if (sampleFlag) {
 				for (j = 0; j < TEST_LENGTH_SAMPLES; j += 1) fftData[j] = ((float)InputSignal[j]) / 2048.0;
@@ -688,9 +691,11 @@ void wsUpdateMag() {
 			
 			for (j = 0; j < 9; j += 1) {
 				//WS_LED[index][level]
+//				if (j < level) wsSetColor(WS_LED[i][j], musicColor[j], ((float)slideValue) / 100.0);
 				if (j < level) wsSetColor(WS_LED[i][j], musicColor[j], 0.3);
 				else wsSetColor(WS_LED[i][j], musicColor[j], 0);
 				if(j == wsLevel[i] - 1)
+//					wsSetColor(WS_LED[i][j], musicColor[j], ((float)slideValue) / 100.0);
 					wsSetColor(WS_LED[i][j], musicColor[j], 0.3);
 			}
 			
@@ -704,7 +709,6 @@ void wsUpdateMag() {
 			}
 		}
 	}
-	// test
 	
 	startShow = TRUE;
 }
