@@ -76,6 +76,7 @@ void Zoom(u32, u32, u8*);
 void wsUpdateMag(void);
 void ADC_MainRoutine(void);
 void RUN_FFT(void);
+void speakerEnable(bool enable);
 static void delay(u32 count);
 
 /* Global variables ----------------------------------------------------------------------------------------*/
@@ -200,7 +201,9 @@ int main(void) {
 	asSetEnable(TRUE);
 	asSetSignal(1);
 	
-	/* UART setup */ 
+	speakerEnable(TRUE);
+	
+	/* UART setup */
 	mp3UART_Configuration();
 	mp3ResetModule(mp3CmdQueue, &queueSize);
 	mp3SetDevice(mp3CmdQueue, &queueSize, 1); // SD Card
@@ -208,39 +211,44 @@ int main(void) {
 	mp3SetVolume(mp3CmdQueue, &queueSize, 20);
 	mp3Play(mp3CmdQueue, &queueSize, 1);
 	
+	delay(100000);
+	asSetSignal(0);
+	
 	while (1) {
 		if (mBtAction == btClick) {
 			static bool flag = TRUE;
 			mBtAction = btNone;
 			printf("click\r\n");
-			if(flag) {
-				asSetSignal(1);
-				flag = FALSE;
-				mp3SetVolume(mp3CmdQueue, &queueSize, 20);
-				mp3Play(mp3CmdQueue, &queueSize, 1);
-			}else {
-				asSetSignal(0);
-				flag = TRUE;
-				mp3SetVolume(mp3CmdQueue, &queueSize, 20);
-				mp3Play(mp3CmdQueue, &queueSize, 2);
+			
+			if (mode == 1) mode = 2;
+			else if (mode == 2) {
+				mode = 1;
+				adcIndex = 0;
 			}
-//			if (mode == 1) mode = 2;
-//			else if (mode == 2) {
-//				mode = 1;
-//				adcIndex = 0;
-//			}
-//			wsUpdateMag();
+			wsUpdateMag();
 		}else if(mBtAction == btLongClick) {
 			mBtAction = btNone;
 			printf("long click\r\n");
 			if (mode != 0) {
+				asSetSignal(1);
+				mp3SetVolume(mp3CmdQueue, &queueSize, 20);
+				mp3Play(mp3CmdQueue, &queueSize, 2);
+				delay(10000000);
 				mode = 0;
 				wsClearAll();
 				wsShow();
+				speakerEnable(FALSE);
 				printf("off\r\n");
+				
 			} else {
 				mode = 2;
 				adcIndex = 0;
+				speakerEnable(TRUE);
+				asSetSignal(1);
+				mp3SetVolume(mp3CmdQueue, &queueSize, 20);
+				mp3Play(mp3CmdQueue, &queueSize, 1);
+				delay(10000000);
+				asSetSignal(0);
 				printf("on\r\n");
 			}
 		}
@@ -309,6 +317,9 @@ void GPIO_Configuration(void) {
 	
 	GPIO_DirectionConfig(HT_GPIOB, GPIO_PIN_1, GPIO_DIR_IN);
 	GPIO_InputConfig(HT_GPIOB, GPIO_PIN_1, ENABLE);
+	
+	// Music mute pin
+	GPIO_DirectionConfig(HT_GPIOC, GPIO_PIN_15, GPIO_DIR_OUT);
 	
 #if (RETARGET_PORT == RETARGET_USART0)
 	AFIO_GPxConfig(GPIO_PA, AFIO_PIN_2 | AFIO_PIN_3, AFIO_FUN_USART_UART);
@@ -718,6 +729,13 @@ void RUN_FFT(void) {
 	/* Process the data through the Complex Magnitude Module for
 	calculating the magnitude at each bin */
 	arm_cmplx_mag_f32(fftData, OutputSignal, fftSize);
+}
+
+void speakerEnable(bool enable) {
+	// Music mute pin
+	// Enable  -> low
+	// Disable -> high
+	GPIO_WriteOutBits(HT_GPIOC, GPIO_PIN_15, !enable);
 }
 
 static void delay(u32 count) {
