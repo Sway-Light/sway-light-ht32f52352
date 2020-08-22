@@ -214,11 +214,20 @@ extern u8 TK_L, TK_R;
 extern u16 TK_COUNT;
 
 // Button
-	static bool btPrev = FALSE;
-	extern bool btPress;
-	extern u32 btTM;
-	extern bool btReleaseFlag;
-	extern bool longClick;
+typedef enum {
+	btRelease,
+	btPressed
+}BtStatus;
+extern BtStatus mBtStatus;
+
+typedef enum {
+	btNone,
+	btClick,
+	btLongClick
+}BtAction;
+extern BtAction mBtAction;
+static u8 btPrev = btRelease;
+extern u32 btTM;
 
 //u32 time = 0;
 //bool startCount = FALSE;
@@ -228,6 +237,7 @@ void GPTM1_IRQHandler(void) {
 	//FFT & LED
 	extern bool startShow, sampleFlag, initFlag;
 	extern u8 wsLevelTM[16];
+	static bool btFinish = TRUE;
 	
 	u8 j = 0;
 	
@@ -272,40 +282,42 @@ void GPTM1_IRQHandler(void) {
 		}
 	}
 	
-	// Button press
-	if (btPress && btReleaseFlag == FALSE) {
-		btTM++;
-		if (btTM >= 500) {
-			// long click
-			longClick = TRUE;
-			btTM = 0;
-			printf("\r\nLong click");
+	// Button
+	if(btFinish) {
+		if (!GPIO_ReadInBit(HT_GPIOB, GPIO_PIN_1)) {
+			// press
+			mBtStatus = btPressed;
+		} else {
+			// release
+			mBtStatus = btRelease;
 		}
-	}
-	if (btPress != btPrev) {
-		if (!btPress) {
-			if (longClick) {
-				
-				if (mode != 0) {
-					mode = 0;
-					wsClearAll();
-					wsShow();
-					printf("\r\noff");
-				} else {
-					mode = 2;
-					i = 0;
-					printf("\r\non");
-				}
-			} else {
-				if (mode == 1) mode = 2;
-				else if (mode == 2) {
-					mode = 1;
-					i = 0;
-				}
+		if(btPrev != mBtStatus) {
+			if(mBtStatus == btRelease) {
+				mBtAction = btClick;
+				btTM = 0;
+				printf("released\r\n");
+//				btPrev = mBtStatus;
+			}else if(mBtStatus == btPressed){
+				printf("pressed\r\n");
 			}
-			btReleaseFlag = TRUE;
+			btPrev = mBtStatus;
 		}
-		btPrev = btPress;
+		if(mBtStatus == btPressed) {
+			btTM++;
+			if (btTM >= 500) {
+				// long click
+				mBtAction = btLongClick;
+				btTM = 0;
+				btFinish = FALSE;
+			}
+		}
+	}else {
+		if(GPIO_ReadInBit(HT_GPIOB, GPIO_PIN_1) && mBtAction == btNone) {
+			printf("long click release\r\n");
+			mBtStatus = btRelease;
+			btPrev = mBtStatus;
+			btFinish = TRUE;
+		}
 	}
 }
 

@@ -101,6 +101,19 @@ typedef union {
 	u16 Data;
 } TouchKey_TypeDef;
 
+typedef enum {
+	btRelease,
+	btPressed
+}BtStatus;
+BtStatus mBtStatus = btRelease;
+
+typedef enum {
+	btNone,
+	btClick,
+	btLongClick
+}BtAction;
+BtAction mBtAction = btNone;
+
 u8 mode = 2;
 
 // Touch key
@@ -183,24 +196,28 @@ int main(void) {
 	mp3Play(1);
 	
 	while (1) {
-		if (!GPIO_ReadInBit(HT_GPIOB, GPIO_PIN_1)) {
-			btPress = TRUE;
-		} else {
-			if (btReleaseFlag) {
-				if (longClick) {
-					longClick = FALSE;
-					btReleaseFlag = FALSE;
-					
-					mp3SetVolume(20);
-					mp3Play(1);
-				} else if (btReleaseFlag) {
-					wsUpdateMag();
-					printf("\r\nmode = %d", mode);
-				}
-				btReleaseFlag = FALSE;
+		if (mBtAction == btClick) {
+			mBtAction = btNone;
+			printf("click\r\n");
+			if (mode == 1) mode = 2;
+			else if (mode == 2) {
+				mode = 1;
+				i = 0;
 			}
-			btPress = FALSE;
-			btTM = 0;
+			wsUpdateMag();
+		}else if(mBtAction == btLongClick) {
+			mBtAction = btNone;
+			printf("long click\r\n");
+			if (mode != 0) {
+				mode = 0;
+				wsClearAll();
+				wsShow();
+				printf("off\r\n");
+			} else {
+				mode = 2;
+				i = 0;
+				printf("on\r\n");
+			}
 		}
 		
 		if (mode == 1) {
