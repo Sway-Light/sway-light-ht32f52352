@@ -43,7 +43,7 @@
   * @{
   */
 
-extern u16 i;
+extern u16 adcIndex;
 
 /* Global functions ----------------------------------------------------------------------------------------*/
 /*********************************************************************************************************//**
@@ -247,7 +247,7 @@ void GPTM1_IRQHandler(void) {
 	if (startShow == TRUE || initFlag == FALSE) {
 		wsShow();
 		startShow = FALSE;
-		i = 0;
+		adcIndex = 0;
 //		startCount = TRUE;
 		sampleFlag = FALSE;
 	}

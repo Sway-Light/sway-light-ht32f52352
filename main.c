@@ -123,7 +123,7 @@ u8 status = none;
 TouchKey_TypeDef Touch;
 bool TK_CHECK = FALSE, TK_1SEC = FALSE;
 u8 TK_L = 0, TK_R = 0;
-u16 TK_COUNT = 0, i = 0;
+u16 TK_COUNT = 0, adcIndex = 0;
 s16 j = 0;
 
 // WS2812B
@@ -192,6 +192,8 @@ int main(void) {
 	
 	mp3ResetModule();
 	mp3SetDevice(1); // SD Card
+	delay(10000000);
+	printf("test");
 	mp3SetVolume(20);
 	mp3Play(1);
 	
@@ -199,11 +201,13 @@ int main(void) {
 		if (mBtAction == btClick) {
 			mBtAction = btNone;
 			printf("click\r\n");
-			if (mode == 1) mode = 2;
-			else if (mode == 2) {
-				mode = 1;
-				i = 0;
-			}
+			mp3SetVolume(20);
+			mp3Play(1);
+//			if (mode == 1) mode = 2;
+//			else if (mode == 2) {
+//				mode = 1;
+//				adcIndex = 0;
+//			}
 			wsUpdateMag();
 		}else if(mBtAction == btLongClick) {
 			mBtAction = btNone;
@@ -215,7 +219,7 @@ int main(void) {
 				printf("off\r\n");
 			} else {
 				mode = 2;
-				i = 0;
+				adcIndex = 0;
 				printf("on\r\n");
 			}
 		}
@@ -231,7 +235,7 @@ int main(void) {
 				
 				wsUpdateMag();
 				
-				uCounter = (HSE_VALUE >> 4);
+				uCounter = (HSE_VALUE >> 6);
 				while (uCounter--);
 			} else {
 				TK_CHECK = FALSE;
@@ -640,14 +644,15 @@ void wsUpdateMag() {
 		};
 		
 		for (i = 0; i < 16; i += 1) {
-			if (OutputSignal[i + 1] < 3) level = 1;
-			else if(OutputSignal[i + 1] < 5) level = 2;
-			else if(OutputSignal[i + 1] < 8) level = 3;
-			else if(OutputSignal[i + 1] < 11) level = 4;
-			else if(OutputSignal[i + 1] < 14) level = 5;
-			else if(OutputSignal[i + 1] < 17) level = 6;
-			else if(OutputSignal[i + 1] < 20) level = 7;
-			else if(OutputSignal[i + 1] < 23) level = 8;
+			u8 scale = 2;
+			if (OutputSignal[i*scale + 1] < 3) level = 1;
+			else if(OutputSignal[i*scale + 1] < 5) level = 2;
+			else if(OutputSignal[i*scale + 1] < 8) level = 3;
+			else if(OutputSignal[i*scale + 1] < 11) level = 4;
+			else if(OutputSignal[i*scale + 1] < 14) level = 5;
+			else if(OutputSignal[i*scale + 1] < 17) level = 6;
+			else if(OutputSignal[i*scale + 1] < 20) level = 7;
+			else if(OutputSignal[i*scale + 1] < 23) level = 8;
 			else level = 9;
 			
 			for (j = 0; j < 9; j += 1) {
@@ -675,10 +680,10 @@ void wsUpdateMag() {
 
 void ADC_MainRoutine(void) {
 	if (gADC_CycleEndOfConversion) {
-		if (i < TEST_LENGTH_SAMPLES) {
-			InputSignal[i] = gADC_Result;
-			InputSignal[i + 1] = 0;
-			i += 2;
+		if (adcIndex < TEST_LENGTH_SAMPLES) {
+			InputSignal[adcIndex] = gADC_Result;
+			InputSignal[adcIndex + 1] = 0;
+			adcIndex += 2;
 		} else {
 			sampleFlag = TRUE;
 		}
