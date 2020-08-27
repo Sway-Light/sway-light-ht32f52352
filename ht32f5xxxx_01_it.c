@@ -237,6 +237,7 @@ bool extern touchKeyDelayFlag;
 void GPTM1_IRQHandler(void) {
 	static u8 touchKeyDelayTM = 0;
 	extern u8 mode;
+	
 	//FFT & LED
 	extern bool startShow, sampleFlag, initFlag;
 	extern u8 wsLevelTM[16];
@@ -251,7 +252,6 @@ void GPTM1_IRQHandler(void) {
 		wsShow();
 		startShow = FALSE;
 		adcIndex = 0;
-//		startCount = TRUE;
 		sampleFlag = FALSE;
 	}
 	
@@ -259,17 +259,9 @@ void GPTM1_IRQHandler(void) {
 		if(wsLevelTM[j] > 0) wsLevelTM[j]--;
 	}
 	
-//	if (startCount || initFlag == FALSE) {
-//		time += 1;
-//		if (i >= 128 && startShow == FALSE) {
-//			time = 0;
-//			startCount = FALSE;
-//			gADC_CycleEndOfConversion = TRUE;
-//		}
-//	}
 	// Touch Key
 	touchKeyDelayTM++;
-	if(touchKeyDelayTM > 20){
+	if (touchKeyDelayTM > 20){
 		touchKeyDelayFlag = TRUE;
 		touchKeyDelayTM = 0;
 	}
@@ -291,7 +283,7 @@ void GPTM1_IRQHandler(void) {
 	}
 	
 	// Button
-	if(btFinish) {
+	if (btFinish) {
 		if (!GPIO_ReadInBit(HT_GPIOB, GPIO_PIN_1)) {
 			// press
 			mBtStatus = btPressed;
@@ -299,18 +291,18 @@ void GPTM1_IRQHandler(void) {
 			// release
 			mBtStatus = btRelease;
 		}
-		if(btPrev != mBtStatus) {
+		if (btPrev != mBtStatus) {
 			if(mBtStatus == btRelease) {
 				mBtAction = btClick;
 				btTM = 0;
 				printf("released\r\n");
 //				btPrev = mBtStatus;
-			}else if(mBtStatus == btPressed){
+			} else if (mBtStatus == btPressed){
 				printf("pressed\r\n");
 			}
 			btPrev = mBtStatus;
 		}
-		if(mBtStatus == btPressed) {
+		if (mBtStatus == btPressed) {
 			btTM++;
 			if (btTM >= 500) {
 				// long click
@@ -319,8 +311,8 @@ void GPTM1_IRQHandler(void) {
 				btFinish = FALSE;
 			}
 		}
-	}else {
-		if(GPIO_ReadInBit(HT_GPIOB, GPIO_PIN_1) && mBtAction == btNone) {
+	} else {
+		if (GPIO_ReadInBit(HT_GPIOB, GPIO_PIN_1) && mBtAction == btNone) {
 			printf("long click release\r\n");
 			mBtStatus = btRelease;
 			btPrev = mBtStatus;
@@ -474,9 +466,31 @@ void UART0_IRQHandler(void) {
  * @brief   This function handles UART interrupt.
  * @retval  None
  ************************************************************************************************************/
-//void UART1_IRQHandler(void)
-//{
-//}
+const u8 data_length = 9;
+u8 recieve_index = 0, send_index = 0;
+u8 data_from_esp[data_length], data_to_esp[data_length];
+void UART1_IRQHandler(void) { 
+	if (USART_GetIntStatus(HT_UART1, USART_INT_TXDE) && USART_GetFlagStatus(HT_UART1, USART_FLAG_TXDE)) {
+		
+	}
+	
+	if (USART_GetFlagStatus(HT_UART1, USART_FLAG_RXDR)) {
+		if (recieve_index < data_length) {
+			data_from_esp[recieve_index] = USART_ReceiveData(HT_UART1);
+			if (recieve_index == 0) {
+				if (data_from_esp[recieve_index] == 0x95) printf("Switching Mode: ");
+				else if (data_from_esp[recieve_index] == 0x96) printf("Pleasant Mode: ");
+				else if (data_from_esp[recieve_index] == 0x97) printf("Music Mode: ");
+			}
+			printf("0x%02X ", data_from_esp[recieve_index]);
+			recieve_index += 1;
+			if (recieve_index == 9) printf("\r\n");
+		} else {
+			recieve_index = 0;
+		}
+	}
+	
+}
 
 /*********************************************************************************************************//**
  * @brief   This function handles UART interrupt.

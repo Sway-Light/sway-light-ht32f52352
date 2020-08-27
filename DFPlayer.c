@@ -40,27 +40,18 @@ void mp3SendCmd(u8 *cmdQueue, u8 *queueSize, u8 cmd, u16 high_arg, u16 low_arg) 
 	send_buf[3] = cmd;
 	send_buf[5] = high_arg;
 	send_buf[6] = low_arg;
+	
 	mp3FillChecksum();
+	
 	for(i = 0; i < 10; i++) {
 		cmdQueue[i + *queueSize] = send_buf[i];
 	}
 	(*queueSize) += 10;
+	
 	USART_IntConfig(HT_UART0, USART_INT_TXDE, ENABLE); // Enable the TX inturrupt when data is ready to be transmitted.
-//	for(mp3_i = 0; mp3_i < 10; mp3_i++) {
-//		Tx_Data = send_buf[mp3_i];
-//		USART_SendData(HT_UART0, Tx_Data);
-//		while(USART_GetFlagStatus(HT_UART0, USART_FLAG_TXC) == RESET);
-//	}
 }
 
 void mp3ReceiveCmd(void) {
-//	static u8 RX_index = 0;
-//	if (USART_GetFlagStatus(HT_UART0, USART_FLAG_RXDR)) {
-//		return_buf[RX_index] = USART_ReceiveData(HT_UART0);
-//		if (RX_index >= 9) RX_index = 0;
-//		else RX_index += 1;
-//	}
-	
 	switch (return_buf[3]) {
 		case 0x3D:
 			printf("\r\nmp3Debug: mp3 finished. \r\n");

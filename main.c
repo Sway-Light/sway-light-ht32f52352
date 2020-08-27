@@ -62,6 +62,7 @@ void GPTM1_Configuration(void);
 void I2C_Configuration(void);
 void ADC_Configuration(void);
 void TM_Configuration(void);
+void espUART_Configuration(void);
 
 #if (ENABLE_CKOUT == 1)
 void CKOUTConfig(void);
@@ -182,6 +183,8 @@ int main(void) {
 	GPIO_Configuration();               /* GPIO Related configuration                                         */
 	RETARGET_Configuration();           /* Retarget Related configuration                                     */
 	
+	espUART_Configuration();
+	
 	ledInit();
 	wsInit();
 	wsBlinkAll(1000);
@@ -227,7 +230,7 @@ int main(void) {
 				adcIndex = 0;
 			}
 			wsUpdateMag();
-		}else if(mBtAction == btLongClick) {
+		} else if (mBtAction == btLongClick) {
 			mBtAction = btNone;
 			printf("long click\r\n");
 			if (mode != 0) {
@@ -459,6 +462,35 @@ void TM_Configuration(void) {
 
 	TM_IntConfig(HT_GPTM0, TM_INT_CH3CC, ENABLE);
 	NVIC_EnableIRQ(GPTM0_IRQn);
+}
+
+void espUART_Configuration(void) {
+	USART_InitTypeDef USART_InitStructure;
+	
+	{ /* Enable peripheral clock                                                                              */
+		CKCU_PeripClockConfig_TypeDef CKCUClock = {{ 0 }};
+		CKCUClock.Bit.UART1 = 1;
+		CKCU_PeripClockConfig(CKCUClock, ENABLE);
+	}
+	
+	/* Turn on UxART Rx internal pull up resistor to prevent unknow state                                     */
+	GPIO_PullResistorConfig(HT_GPIOB, GPIO_PIN_5, GPIO_PR_UP);
+	
+	AFIO_GPxConfig(GPIO_PB, AFIO_PIN_4, AFIO_FUN_USART_UART); // TX
+	AFIO_GPxConfig(GPIO_PB, AFIO_PIN_5, AFIO_FUN_USART_UART); // RX
+	
+	USART_InitStructure.USART_BaudRate = 9600;
+	USART_InitStructure.USART_WordLength = USART_WORDLENGTH_8B;
+	USART_InitStructure.USART_StopBits = USART_STOPBITS_1;
+	USART_InitStructure.USART_Parity = USART_PARITY_NO;
+	USART_InitStructure.USART_Mode = USART_MODE_NORMAL;
+	USART_Init(HT_UART1, &USART_InitStructure);
+	
+	NVIC_EnableIRQ(UART1_IRQn);
+	USART_IntConfig(HT_UART1, USART_INT_RXDR, ENABLE);
+	USART_IntConfig(HT_UART1, USART_INT_TXDE, ENABLE);
+	USART_TxCmd(HT_UART1, ENABLE);
+	USART_RxCmd(HT_UART1, ENABLE);
 }
 
 #if (ENABLE_CKOUT == 1)

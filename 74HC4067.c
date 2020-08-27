@@ -27,7 +27,7 @@ void asSetSignal(u8 channel) {
 void asSetEnable(bool enable) {
 	// enable  -> low
 	// disable -> high
-	GPIO_WriteOutBits(HT_GPIOD, GPIO_PIN_1, !enable);
+	GPIO_WriteOutBits(HT_GPIOD, GPIO_PIN_1, (FlagStatus)!enable);
 	#if debug
 	printf("asSetEnable(%d)\r\n", enable);
 	#endif
