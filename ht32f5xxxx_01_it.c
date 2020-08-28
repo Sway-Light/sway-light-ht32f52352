@@ -467,26 +467,22 @@ void UART0_IRQHandler(void) {
  * @retval  None
  ************************************************************************************************************/
 const u8 data_length = 9;
-u8 recieve_index = 0, send_index = 0;
-u8 data_from_esp[data_length], data_to_esp[data_length];
-void UART1_IRQHandler(void) { 
-	if (USART_GetIntStatus(HT_UART1, USART_INT_TXDE) && USART_GetFlagStatus(HT_UART1, USART_FLAG_TXDE)) {
+extern u8 recieve_index, send_index;
+extern u8 data_from_esp[data_length], data_to_esp[data_length];
+u8 i;
+extern bool espFlag;
+void USART0_IRQHandler(void) { 
+	if (USART_GetIntStatus(HT_USART0, USART_INT_TXDE) && USART_GetFlagStatus(HT_USART0, USART_FLAG_TXDE)) {
 		
 	}
 	
-	if (USART_GetFlagStatus(HT_UART1, USART_FLAG_RXDR)) {
-		if (recieve_index < data_length) {
-			data_from_esp[recieve_index] = USART_ReceiveData(HT_UART1);
-			if (recieve_index == 0) {
-				if (data_from_esp[recieve_index] == 0x95) printf("Switching Mode: ");
-				else if (data_from_esp[recieve_index] == 0x96) printf("Pleasant Mode: ");
-				else if (data_from_esp[recieve_index] == 0x97) printf("Music Mode: ");
-			}
-			printf("0x%02X ", data_from_esp[recieve_index]);
-			recieve_index += 1;
-			if (recieve_index == 9) printf("\r\n");
-		} else {
+	if (USART_GetFlagStatus(HT_USART0, USART_FLAG_RXDR)) {
+		data_from_esp[recieve_index] = USART_ReceiveData(HT_USART0);
+		if (recieve_index >= data_length - 1) {
 			recieve_index = 0;
+			espFlag = TRUE;
+		} else {
+			recieve_index += 1;
 		}
 	}
 	

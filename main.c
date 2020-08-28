@@ -135,7 +135,7 @@ u8 wsLevel[16] = {1};
 u8 wsLevelTM[16] = {0};
 
 // Touch key
-#define I2C_TOUCHKEY_SPEED         (50000)          /*!< I2C speed                                          */
+#define I2C_TOUCHKEY_SPEED         (100000)          /*!< I2C speed                                          */
 #define I2C_TOUCHKEY_DEV_ADDR      (0x50)           /*!< I2C device address                                 */
 #define KEYSTATUS_CMD              (0x08)
 bool touchKeyDelayFlag = FALSE;
@@ -169,6 +169,10 @@ u32 btTM = 0;
 u8 mp3CmdQueue[QUEUE_MAX_SIZE];
 u8 queueSize = 0;
 
+bool espFlag = FALSE;
+u8 data_from_esp[9], data_to_esp[9];
+u8 recieve_index = 0, send_index = 0;
+
 /* Private variables ---------------------------------------------------------------------------------------*/
 /* Global functions ----------------------------------------------------------------------------------------*/
 /*********************************************************************************************************//**
@@ -182,8 +186,6 @@ int main(void) {
 	CKCU_Configuration();               /* System Related configuration                                       */
 	GPIO_Configuration();               /* GPIO Related configuration                                         */
 	RETARGET_Configuration();           /* Retarget Related configuration                                     */
-	
-	espUART_Configuration();
 	
 	ledInit();
 	wsInit();
@@ -207,6 +209,7 @@ int main(void) {
 	
 	speakerEnable(TRUE);
 	
+	espUART_Configuration();
 	/* UART setup */
 	mp3UART_Configuration();
 	mp3ResetModule(mp3CmdQueue, &queueSize);
@@ -214,11 +217,36 @@ int main(void) {
 	delay(100000);
 	mp3SetVolume(mp3CmdQueue, &queueSize, 20);
 	mp3Play(mp3CmdQueue, &queueSize, 1);
-	
 	delay(100000);
+	
 	asSetSignal(0);
 	
 	while (1) {
+		if (espFlag) {
+			u8 i;
+			u16 sum = 0, checksum = 0;
+//			
+//			for (i = 1; i < 6; i++) sum += data_from_esp[i];
+//			checksum = (data_from_esp[6] << 8) + data_from_esp[7];
+//			
+			for (i = 0; i < 9; i++) {
+				if (i == 0) {
+					if (data_from_esp[i] == 0x95) printf("Switching Mode: \r\n");
+					else if (data_from_esp[i] == 0x96) printf("Pleasant Mode: \r\n");
+					else if (data_from_esp[i] == 0x97) printf("Music Mode: \r\n");
+				}
+				printf("0x%02X ", data_from_esp[i]);
+			}
+			printf("\r\n======================================\r\n");
+//			if (checksum == sum) {
+//				
+//			} else {
+//				printf("checksum = %04X\r\n", checksum);
+//				printf("sum = %04X\r\n", sum);
+//			}
+			espFlag = FALSE;
+//			recieve_index = 0;
+		}
 		if (mBtAction == btClick) {
 			static bool flag = TRUE;
 			mBtAction = btNone;
@@ -437,8 +465,8 @@ void TM_Configuration(void) {
 
 	{ /* Time base configuration                                                                              */
 		TM_TimeBaseInitTypeDef TimeBaseInit;
-		TimeBaseInit.Prescaler = (SystemCoreClock / 21000) - 1;
-		TimeBaseInit.CounterReload = 6 - 1;
+		TimeBaseInit.Prescaler = (SystemCoreClock / 25000) - 1;
+		TimeBaseInit.CounterReload = 10 - 1;
 		TimeBaseInit.RepetitionCounter = 0;
 		TimeBaseInit.CounterMode = TM_CNT_MODE_UP;
 		TimeBaseInit.PSCReloadTime = TM_PSC_RLD_IMMEDIATE;
@@ -455,7 +483,7 @@ void TM_Configuration(void) {
 		OutInit.PolarityN = TM_CHP_NONINVERTED;
 		OutInit.IdleState = MCTM_OIS_LOW;
 		OutInit.IdleStateN = MCTM_OIS_HIGH;
-		OutInit.Compare = 3 - 1;
+		OutInit.Compare = 5 - 1;
 		OutInit.AsymmetricCompare = 0;
 		TM_OutputInit(HT_GPTM0, &OutInit);
 	}
@@ -469,28 +497,29 @@ void espUART_Configuration(void) {
 	
 	{ /* Enable peripheral clock                                                                              */
 		CKCU_PeripClockConfig_TypeDef CKCUClock = {{ 0 }};
-		CKCUClock.Bit.UART1 = 1;
+		CKCUClock.Bit.USART0 = 1;
 		CKCU_PeripClockConfig(CKCUClock, ENABLE);
 	}
 	
-	/* Turn on UxART Rx internal pull up resistor to prevent unknow state                                     */
-	GPIO_PullResistorConfig(HT_GPIOB, GPIO_PIN_5, GPIO_PR_UP);
+//	/* Turn on UxART Rx internal pull up resistor to prevent unknow state                                     */
+//	GPIO_PullResistorConfig(HT_GPIOC, GPIO_PIN_13, GPIO_PR_UP);
 	
-	AFIO_GPxConfig(GPIO_PB, AFIO_PIN_4, AFIO_FUN_USART_UART); // TX
-	AFIO_GPxConfig(GPIO_PB, AFIO_PIN_5, AFIO_FUN_USART_UART); // RX
+	AFIO_GPxConfig(GPIO_PA, AFIO_PIN_8, AFIO_FUN_USART_UART); // TX
+	AFIO_GPxConfig(GPIO_PA, AFIO_PIN_10, AFIO_FUN_USART_UART); // RX
 	
 	USART_InitStructure.USART_BaudRate = 9600;
 	USART_InitStructure.USART_WordLength = USART_WORDLENGTH_8B;
 	USART_InitStructure.USART_StopBits = USART_STOPBITS_1;
 	USART_InitStructure.USART_Parity = USART_PARITY_NO;
 	USART_InitStructure.USART_Mode = USART_MODE_NORMAL;
-	USART_Init(HT_UART1, &USART_InitStructure);
+	USART_Init(HT_USART0, &USART_InitStructure);
 	
-	NVIC_EnableIRQ(UART1_IRQn);
-	USART_IntConfig(HT_UART1, USART_INT_RXDR, ENABLE);
-	USART_IntConfig(HT_UART1, USART_INT_TXDE, ENABLE);
-	USART_TxCmd(HT_UART1, ENABLE);
-	USART_RxCmd(HT_UART1, ENABLE);
+	NVIC_EnableIRQ(USART0_IRQn);
+	
+	USART_IntConfig(HT_USART0, USART_INT_RXDR, ENABLE);
+	
+	USART_TxCmd(HT_USART0, ENABLE);
+	USART_RxCmd(HT_USART0, ENABLE);
 }
 
 #if (ENABLE_CKOUT == 1)
