@@ -169,7 +169,9 @@ u32 btTM = 0;
 u8 mp3CmdQueue[QUEUE_MAX_SIZE];
 u8 queueSize = 0;
 
+// esp8266
 bool espFlag = FALSE;
+bool errorFlag = FALSE;
 u8 data_from_esp[9], data_to_esp[9];
 u8 recieve_index = 0, send_index = 0;
 
@@ -225,27 +227,32 @@ int main(void) {
 		if (espFlag) {
 			u8 i;
 			u16 sum = 0, checksum = 0;
-//			
-//			for (i = 1; i < 6; i++) sum += data_from_esp[i];
-//			checksum = (data_from_esp[6] << 8) + data_from_esp[7];
-//			
-			for (i = 0; i < 9; i++) {
-				if (i == 0) {
-					if (data_from_esp[i] == 0x95) printf("Switching Mode: \r\n");
-					else if (data_from_esp[i] == 0x96) printf("Pleasant Mode: \r\n");
-					else if (data_from_esp[i] == 0x97) printf("Music Mode: \r\n");
-				}
-				printf("0x%02X ", data_from_esp[i]);
+			
+			for (i = 1; i < 6; i++) sum += data_from_esp[i];
+			checksum = (data_from_esp[6] << 8) + data_from_esp[7];
+
+			printf("\r\n");
+			if(!(data_from_esp[0] == 0x95 || data_from_esp[0] == 0x96 || data_from_esp[0] == 0x97)) {
+				printf("start byte Error\r\n");
+				errorFlag = TRUE;
 			}
-			printf("\r\n======================================\r\n");
-//			if (checksum == sum) {
-//				
-//			} else {
+			if (checksum == sum) {
+//				for (i = 0; i < 9; i++) {
+//				if (i == 0) {
+//						if (data_from_esp[i] == 0x95) printf("Switching Mode: \r\n");
+//						else if (data_from_esp[i] == 0x96) printf("Pleasant Mode: \r\n");
+//						else if (data_from_esp[i] == 0x97) printf("Music Mode: \r\n");
+//					}
+//					printf("0x%02X ", data_from_esp[i]);
+//				}
+				printf("checksum Correct!\r\n");
+			} else {
+				printf("checksum Error!\r\n");
 //				printf("checksum = %04X\r\n", checksum);
 //				printf("sum = %04X\r\n", sum);
-//			}
+				
+			}
 			espFlag = FALSE;
-//			recieve_index = 0;
 		}
 		if (mBtAction == btClick) {
 			static bool flag = TRUE;
