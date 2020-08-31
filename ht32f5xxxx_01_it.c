@@ -450,12 +450,12 @@ extern u8 queueSize;
 void UART0_IRQHandler(void) {
 	if (USART_GetIntStatus(HT_UART0, USART_INT_TXDE) && USART_GetFlagStatus(HT_UART0, USART_FLAG_TXDE)) {
 //		printf("uart\r\n");
-		if(queueSize > 0) {
+		if (queueSize > 0) {
 //			printf("queue size: %d\r\n", queueSize);
 			USART_SendData(HT_UART0, mp3CmdQueue[0]);
 //			printf("%x " ,mp3CmdQueue[0]);
 			popCmdQueue(mp3CmdQueue, &queueSize);
-		}else {
+		} else {
 //			printf("\r\n");
 			USART_IntConfig(HT_UART0, USART_INT_TXDE, DISABLE); // After Transmitting Data is completed, disable the interrupt of UART0.
 		}
@@ -466,7 +466,7 @@ void UART0_IRQHandler(void) {
  * @brief   This function handles UART interrupt.
  * @retval  None
  ************************************************************************************************************/
-const u8 data_length = 9;
+const u8 data_length = 10;
 extern u8 recieve_index, send_index;
 extern u8 data_from_esp[data_length], data_to_esp[data_length];
 extern bool errorFlag;
@@ -478,11 +478,11 @@ void USART0_IRQHandler(void) {
 	}
 	
 	// Checksum error, clear all data.
-	if(errorFlag) {
+	if (errorFlag) {
 		USART_ClearFlag(HT_USART0, USART_FLAG_RXDR);
 		errorFlag = FALSE;
 		recieve_index = 0;
-	}else {
+	} else {
 		if (USART_GetFlagStatus(HT_USART0, USART_FLAG_RXDR)) {
 			data_from_esp[recieve_index] = USART_ReceiveData(HT_USART0);
 			if (recieve_index >= data_length - 1) {

@@ -117,7 +117,7 @@ typedef enum {
 }BtAction;
 BtAction mBtAction = btNone;
 
-u8 mode = 2;
+u8 mode = 3;
 
 // Touch key
 const u8 zoom = 3, slide = 2, press = 1, none = 0;
@@ -172,7 +172,7 @@ u8 queueSize = 0;
 // esp8266
 bool espFlag = FALSE;
 bool errorFlag = FALSE;
-u8 data_from_esp[9], data_to_esp[9];
+u8 data_from_esp[10], data_to_esp[10];
 u8 recieve_index = 0, send_index = 0;
 
 /* Private variables ---------------------------------------------------------------------------------------*/
@@ -228,24 +228,44 @@ int main(void) {
 			u8 i;
 			u16 sum = 0, checksum = 0;
 			
-			for (i = 1; i < 6; i++) sum += data_from_esp[i];
-			checksum = (data_from_esp[6] << 8) + data_from_esp[7];
+			for (i = 1; i < 7; i++) sum += data_from_esp[i];
+			checksum = (data_from_esp[7] << 8) + data_from_esp[8];
 
 			printf("\r\n");
-			if(!(data_from_esp[0] == 0x95 || data_from_esp[0] == 0x96 || data_from_esp[0] == 0x97)) {
+			if (!(data_from_esp[0] == 0x95)) {
 				printf("start byte Error\r\n");
 				errorFlag = TRUE;
 			}
 			if (checksum == sum) {
-//				for (i = 0; i < 9; i++) {
-//				if (i == 0) {
-//						if (data_from_esp[i] == 0x95) printf("Switching Mode: \r\n");
-//						else if (data_from_esp[i] == 0x96) printf("Pleasant Mode: \r\n");
-//						else if (data_from_esp[i] == 0x97) printf("Music Mode: \r\n");
-//					}
-//					printf("0x%02X ", data_from_esp[i]);
-//				}
+				if (data_from_esp[1] == 0x01) printf("Switching Mode: \r\n");
+				else if (data_from_esp[1] == 0x02) printf("Pleasant Mode: \r\n");
+				else if (data_from_esp[1] == 0x03) printf("Music Mode: \r\n");
+				for (i = 0; i < 9; i++) {
+					printf("0x%02X ", data_from_esp[i]);
+				}
 				printf("checksum Correct!\r\n");
+				mode = data_from_esp[2];
+				
+				if (mode == 0) {
+					asSetSignal(1);
+					mp3SetVolume(mp3CmdQueue, &queueSize, 20);
+					mp3Play(mp3CmdQueue, &queueSize, 2);
+//					delay(10000000);
+					wsClearAll();
+					wsShow();
+					speakerEnable(FALSE);
+					printf("off\r\n");
+				} else if (mode == 1) {
+					mode = 3;
+					adcIndex = 0;
+					speakerEnable(TRUE);
+					asSetSignal(1);
+					mp3SetVolume(mp3CmdQueue, &queueSize, 20);
+					mp3Play(mp3CmdQueue, &queueSize, 1);
+//					delay(10000000);
+					asSetSignal(0);
+					printf("on\r\n");
+				}
 			} else {
 				printf("checksum Error!\r\n");
 //				printf("checksum = %04X\r\n", checksum);
@@ -259,9 +279,9 @@ int main(void) {
 			mBtAction = btNone;
 			printf("click\r\n");
 			
-			if (mode == 1) mode = 2;
-			else if (mode == 2) {
-				mode = 1;
+			if (mode == 2) mode = 3;
+			else if (mode == 3) {
+				mode = 2;
 				adcIndex = 0;
 			}
 			wsUpdateMag();
@@ -280,7 +300,7 @@ int main(void) {
 				printf("off\r\n");
 				
 			} else {
-				mode = 2;
+				mode = 3;
 				adcIndex = 0;
 				speakerEnable(TRUE);
 				asSetSignal(1);
@@ -313,7 +333,7 @@ int main(void) {
 				status = none;
 			}
 		}
-		if (mode == 2) {
+		if (mode == 3) {
 			ADC_MainRoutine();
 			if (sampleFlag) {
 				for (j = 0; j < TEST_LENGTH_SAMPLES; j += 1) fftData[j] = ((float)InputSignal[j]) / 2048.0;
@@ -695,7 +715,7 @@ void Zoom(u32 L, u32 R, u8* Value) {
 void wsUpdateMag() {
 	u8 i, j;
 	
-	if (mode == 1) {
+	if (mode == 2) {
 		// Light Source Mode
 		u8 rows[16] = {0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0};
 		for (i = 0; i < 16; i += 1) {
@@ -730,7 +750,7 @@ void wsUpdateMag() {
 				else wsSetColor(WS_LED[i][j], ws_clean, 0);
 			}
 		}
-	} else if (mode == 2) {
+	} else if (mode == 3) {
 		// Music Mode
 		u8 level;
 		u8 musicColor[9][3] = {
