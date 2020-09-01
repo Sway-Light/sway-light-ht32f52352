@@ -118,6 +118,7 @@ typedef enum {
 BtAction mBtAction = btNone;
 
 u8 mode = 3;
+u32 on_off_interval = 0;
 
 // Touch key
 const u8 zoom = 3, slide = 2, press = 1, none = 0;
@@ -192,8 +193,9 @@ int main(void) {
 	ledInit();
 	wsInit();
 	wsBlinkAll(1000);
+	
 //	delay(10000000);
-//		
+	
 	GPTM1_Configuration();
 	TM_Configuration();
 	I2C_Configuration();
@@ -237,35 +239,65 @@ int main(void) {
 				errorFlag = TRUE;
 			}
 			if (checksum == sum) {
-				if (data_from_esp[1] == 0x01) printf("Switching Mode: \r\n");
-				else if (data_from_esp[1] == 0x02) printf("Pleasant Mode: \r\n");
-				else if (data_from_esp[1] == 0x03) printf("Music Mode: \r\n");
-				for (i = 0; i < 9; i++) {
-					printf("0x%02X ", data_from_esp[i]);
-				}
-				printf("checksum Correct!\r\n");
-				mode = data_from_esp[2];
 				
-				if (mode == 0) {
-					asSetSignal(1);
-					mp3SetVolume(mp3CmdQueue, &queueSize, 20);
-					mp3Play(mp3CmdQueue, &queueSize, 2);
-//					delay(10000000);
-					wsClearAll();
-					wsShow();
-					speakerEnable(FALSE);
-					printf("off\r\n");
-				} else if (mode == 1) {
-					mode = 3;
-					adcIndex = 0;
-					speakerEnable(TRUE);
-					asSetSignal(1);
-					mp3SetVolume(mp3CmdQueue, &queueSize, 20);
-					mp3Play(mp3CmdQueue, &queueSize, 1);
-//					delay(10000000);
-					asSetSignal(0);
-					printf("on\r\n");
+				if (data_from_esp[1] == 0x01) {
+					printf("Switching Mode: \r\n");
+					
+					mode = data_from_esp[2];
+					for (i = 0; i <= 3; i++) {
+						on_off_interval += (data_from_esp[6 - i] << (8 * i));
+					}
+					
+					if (mode == 0) {
+						
+						asSetSignal(1);
+						mp3SetVolume(mp3CmdQueue, &queueSize, 20);
+						mp3Play(mp3CmdQueue, &queueSize, 2);
+//						delay(10000000);
+						
+						wsClearAll();
+						wsShow();
+						speakerEnable(FALSE);
+						
+						printf("Turn off\r\n");
+					} else if (mode == 1) {
+						
+						mode = 3;
+						adcIndex = 0;
+						
+						speakerEnable(TRUE);
+						asSetSignal(1);
+						mp3SetVolume(mp3CmdQueue, &queueSize, 20);
+						mp3Play(mp3CmdQueue, &queueSize, 1);
+//						delay(10000000);
+						asSetSignal(0);
+						
+						printf("Turn on\r\n");
+					} else if (mode == 2 || mode == 3) {
+						
+						if (mode == 2) adcIndex = 0;
+						wsUpdateMag();
+						
+						if (mode == 2) printf("Switch to Lighting Mode\r\n");
+						else printf("Switch to Music Mode\r\n");
+					}
+					
+					printf("Interval: %d secs\r\n", on_off_interval);
+				} else if (data_from_esp[1] == 0x02) {
+//					printf("Lighting Mode: \r\n");
+					
+					
+				} else if (data_from_esp[1] == 0x03) {
+//					printf("Music Mode: \r\n");
+					
+					
 				}
+				
+//				for (i = 0; i < 9; i++) {
+//					printf("0x%02X ", data_from_esp[i]);
+//				}
+				printf("checksum Correct!\r\n");
+				
 			} else {
 				printf("checksum Error!\r\n");
 //				printf("checksum = %04X\r\n", checksum);
@@ -288,26 +320,33 @@ int main(void) {
 		} else if (mBtAction == btLongClick) {
 			mBtAction = btNone;
 			printf("long click\r\n");
+			
 			if (mode != 0) {
+				
 				asSetSignal(1);
 				mp3SetVolume(mp3CmdQueue, &queueSize, 20);
 				mp3Play(mp3CmdQueue, &queueSize, 2);
 				delay(10000000);
+				
 				mode = 0;
+				
 				wsClearAll();
 				wsShow();
 				speakerEnable(FALSE);
-				printf("off\r\n");
 				
+				printf("off\r\n");
 			} else {
+				
 				mode = 3;
 				adcIndex = 0;
+				
 				speakerEnable(TRUE);
 				asSetSignal(1);
 				mp3SetVolume(mp3CmdQueue, &queueSize, 20);
 				mp3Play(mp3CmdQueue, &queueSize, 1);
 				delay(10000000);
 				asSetSignal(0);
+				
 				printf("on\r\n");
 			}
 		}
