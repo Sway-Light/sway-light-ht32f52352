@@ -79,6 +79,7 @@ void wsUpdateMag(void);
 void ADC_MainRoutine(void);
 void RUN_FFT(void);
 void speakerEnable(bool enable);
+void generateMusicColor(void);
 static void delay(u32 count);
 
 /* Global variables ----------------------------------------------------------------------------------------*/
@@ -118,9 +119,19 @@ typedef enum {
 }BtAction;
 BtAction mBtAction = btNone;
 
+// Switching Mode
 u8 mode = 3;
 u32 on_off_interval = 0;
 extern bool interval_flag;
+
+// Lighting Mode
+u8 L_Type;
+u8 Brightness = 0, Color[3] = {0xFF, 0xFF, 0xFF};
+
+// Music Mode
+u8 M_Type, mLevel;
+u8 high_color[3] = {255, 0, 0}, mid_color[3] = {255, 255, 0}, low_color[3] = {0, 255, 0};
+u8 musicColor[9][3];
 
 // Touch key
 const u8 zoom = 3, slide = 2, press = 1, none = 0;
@@ -192,6 +203,8 @@ int main(void) {
 	GPIO_Configuration();               /* GPIO Related configuration                                         */
 	RETARGET_Configuration();           /* Retarget Related configuration                                     */
 	
+	generateMusicColor();
+	
 	ledInit();
 	wsInit();
 	wsBlinkAll(1000);
@@ -252,11 +265,12 @@ int main(void) {
 				if (data_from_esp[1] == 0x01) {
 					printf("Switching Mode: \r\n");
 					
-					mode = data_from_esp[2];
 					for (i = 0; i <= 3; i++) {
 						interval += (data_from_esp[6 - i] << (8 * i));
 					}
-					on_off_interval = interval;
+					if (interval != 0 && on_off_interval == 0) on_off_interval = interval;
+					
+					if (interval == 0) mode = data_from_esp[2];
 					
 					if (mode == 0) {
 						
@@ -295,13 +309,39 @@ int main(void) {
 					
 					printf("Interval: %u secs\r\n", on_off_interval);
 				} else if (data_from_esp[1] == 0x02) {
-//					printf("Lighting Mode: \r\n");
+					printf("Lighting Mode: \r\n");
 					
-					
+					L_Type = data_from_esp[2];
+					if (L_Type == 0x01) {
+						Brightness = data_from_esp[3];
+						slideValue = Brightness;
+						
+						for (i = 0; i < 3; i++) Color[i] = data_from_esp[i + 4];
+						
+					} else if (L_Type == 0x02) {
+						
+					} else if (L_Type == 0x03) {
+						zoomValue = data_from_esp[3];
+					}
+					wsUpdateMag();
 				} else if (data_from_esp[1] == 0x03) {
 //					printf("Music Mode: \r\n");
 					
-					
+					M_Type = data_from_esp[2];
+					mLevel = data_from_esp[3];
+					if (M_Type == 0x01) {
+						for (i = 0; i < 3; i++) {
+							if (mLevel == 0x01) high_color[i] = data_from_esp[i + 4];
+							else if (mLevel == 0x02) mid_color[i] = data_from_esp[i + 4];
+							else if (mLevel == 0x03) low_color[i] = data_from_esp[i + 4];
+						}
+						
+						generateMusicColor();
+					} else if (M_Type == 0x02) {
+						
+					} else if (M_Type == 0x04) {
+						
+					}
 				}
 				
 				for (i = 0; i < 9; i++) {
@@ -812,24 +852,13 @@ void wsUpdateMag() {
 		}
 		for (i = 0; i < 16; i += 1) {
 			for (j = 0; j < 9; j += 1) {
-				if (rows[i] == 1) wsSetColor(WS_LED[i][j], ws_white, ((float)slideValue) / 100.0);
+				if (rows[i] == 1) wsSetColor(WS_LED[i][j], Color, ((float)slideValue) / 100.0);
 				else wsSetColor(WS_LED[i][j], ws_clean, 0);
 			}
 		}
 	} else if (mode == 3) {
 		// Music Mode
 		u8 level;
-		u8 musicColor[9][3] = {
-				{0, 255, 0},
-				{128, 255, 0},
-				{200, 255, 0},
-				{255, 255, 0},
-				{255, 200, 0},
-				{255, 128, 0},
-				{255, 64, 0},
-				{255, 32, 0},
-				{255, 0, 0}
-		};
 		
 		for (i = 0; i < 16; i += 1) {
 			u8 scale = 2;
@@ -894,6 +923,43 @@ void speakerEnable(bool enable) {
 	// Enable  -> low
 	// Disable -> high
 	GPIO_WriteOutBits(HT_GPIOC, GPIO_PIN_15, !enable);
+}
+
+void generateMusicColor(void) {
+	u8 color_1 = 0, color_2 = 0;
+	
+	for (color_1 = 0; color_1 < 9; color_1++) {
+		for (color_2 = 0; color_2 < 3; color_2++) {
+			if (color_1 == 0 || color_1 == 4 || color_1 == 8) {
+				if (color_1 == 0) musicColor[color_1][color_2] = low_color[color_2];
+				else if (color_1 == 4) musicColor[color_1][color_2] = mid_color[color_2];
+				else if (color_1 == 8) musicColor[color_1][color_2] = high_color[color_2];
+			} else {
+				u8 mid_low = 0, high_mid = 0;
+				if (color_1 <= 3) {
+					if (mid_color[color_2] > low_color[color_2]) mid_low = (mid_color[color_2] - low_color[color_2]) / 4 * color_1;
+					else if (mid_color[color_2] < low_color[color_2]) mid_low = (low_color[color_2] - mid_color[color_2]) / 4 * (3 - color_1);
+					else mid_low = low_color[color_2];
+					
+					musicColor[color_1][color_2] = mid_low;
+				} else if (color_1 <= 7) {
+					if (high_color[color_2] > mid_color[color_2]) high_mid = (high_color[color_2] - mid_color[color_2]) / 4 * (color_1 - 4);
+					else if (high_color[color_2] < mid_color[color_2]) high_mid = (mid_color[color_2] - high_color[color_2]) / 4 * (3 - (color_1 - 4));
+					else high_mid = mid_color[color_2];
+					
+					musicColor[color_1][color_2] = high_mid;
+				}
+			}
+		}
+	}
+	
+	for (color_1 = 0; color_1 < 9; color_1++) {
+		printf("musicColor[%2d]: ", color_1);
+		for (color_2 = 0; color_2 < 3; color_2++) {
+			printf("%3d ", musicColor[color_1][color_2]);
+		}
+		printf("\r\n");
+	}
 }
 
 static void delay(u32 count) {
