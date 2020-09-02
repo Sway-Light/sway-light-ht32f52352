@@ -63,6 +63,7 @@ void I2C_Configuration(void);
 void ADC_Configuration(void);
 void TM_Configuration(void);
 void espUART_Configuration(void);
+void BFTM0_Configuration(void);
 
 #if (ENABLE_CKOUT == 1)
 void CKOUTConfig(void);
@@ -119,6 +120,7 @@ BtAction mBtAction = btNone;
 
 u8 mode = 3;
 u32 on_off_interval = 0;
+extern bool interval_flag;
 
 // Touch key
 const u8 zoom = 3, slide = 2, press = 1, none = 0;
@@ -194,7 +196,7 @@ int main(void) {
 	wsInit();
 	wsBlinkAll(1000);
 	
-//	delay(10000000);
+	BFTM0_Configuration();
 	
 	GPTM1_Configuration();
 	TM_Configuration();
@@ -226,9 +228,16 @@ int main(void) {
 	asSetSignal(0);
 	
 	while (1) {
+		if (interval_flag == TRUE && on_off_interval != 0) {
+			on_off_interval -= 1;
+			if (on_off_interval <= 0) printf("Time up!\r\n");
+			else printf("%u secs left\r\n", on_off_interval);
+			interval_flag = FALSE;
+		}
 		if (espFlag) {
 			u8 i;
 			u16 sum = 0, checksum = 0;
+			u32 interval = 0;
 			
 			for (i = 1; i < 7; i++) sum += data_from_esp[i];
 			checksum = (data_from_esp[7] << 8) + data_from_esp[8];
@@ -245,15 +254,17 @@ int main(void) {
 					
 					mode = data_from_esp[2];
 					for (i = 0; i <= 3; i++) {
-						on_off_interval += (data_from_esp[6 - i] << (8 * i));
+						interval += (data_from_esp[6 - i] << (8 * i));
 					}
+					on_off_interval = interval;
 					
 					if (mode == 0) {
 						
 						asSetSignal(1);
 						mp3SetVolume(mp3CmdQueue, &queueSize, 20);
 						mp3Play(mp3CmdQueue, &queueSize, 2);
-//						delay(10000000);
+						delay(10000);
+						asSetSignal(0);
 						
 						wsClearAll();
 						wsShow();
@@ -269,7 +280,7 @@ int main(void) {
 						asSetSignal(1);
 						mp3SetVolume(mp3CmdQueue, &queueSize, 20);
 						mp3Play(mp3CmdQueue, &queueSize, 1);
-//						delay(10000000);
+						delay(10000);
 						asSetSignal(0);
 						
 						printf("Turn on\r\n");
@@ -282,7 +293,7 @@ int main(void) {
 						else printf("Switch to Music Mode\r\n");
 					}
 					
-					printf("Interval: %d secs\r\n", on_off_interval);
+					printf("Interval: %u secs\r\n", on_off_interval);
 				} else if (data_from_esp[1] == 0x02) {
 //					printf("Lighting Mode: \r\n");
 					
@@ -293,9 +304,9 @@ int main(void) {
 					
 				}
 				
-//				for (i = 0; i < 9; i++) {
-//					printf("0x%02X ", data_from_esp[i]);
-//				}
+				for (i = 0; i < 9; i++) {
+					printf("0x%02X ", data_from_esp[i]);
+				}
 				printf("checksum Correct!\r\n");
 				
 			} else {
@@ -586,6 +597,22 @@ void espUART_Configuration(void) {
 	
 	USART_TxCmd(HT_USART0, ENABLE);
 	USART_RxCmd(HT_USART0, ENABLE);
+}
+
+void BFTM0_Configuration(void) {
+	{ /* Enable peripheral clock                                                                              */
+		CKCU_PeripClockConfig_TypeDef CKCUClock = {{ 0 }};
+		CKCUClock.Bit.BFTM0 = 1;
+		CKCU_PeripClockConfig(CKCUClock, ENABLE);
+	}
+	
+	/* BFTM as Repetitive mode, every 0.5 second to trigger the match interrupt                               */
+	BFTM_SetCompare(HT_BFTM0, SystemCoreClock / 10);
+	BFTM_SetCounter(HT_BFTM0, 0);
+	BFTM_IntConfig(HT_BFTM0, ENABLE);
+	BFTM_EnaCmd(HT_BFTM0, ENABLE);
+
+	NVIC_EnableIRQ(BFTM0_IRQn);
 }
 
 #if (ENABLE_CKOUT == 1)

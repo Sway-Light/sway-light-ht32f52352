@@ -367,8 +367,19 @@ void GPTM1_IRQHandler(void) {
  * @brief   This function handles BFTM interrupt.
  * @retval  None
  ************************************************************************************************************/
-//void BFTM0_IRQHandler(void) {
-//}
+ bool interval_flag = FALSE;
+ u8 interval_time_count = 0;
+void BFTM0_IRQHandler(void) {
+	BFTM_ClearFlag(HT_BFTM0);
+	
+	if (interval_flag == FALSE) {
+		interval_time_count += 1;
+		if (interval_time_count >= 10) {
+			interval_flag = TRUE;
+			interval_time_count = 0;
+		}
+	}
+}
 
 /*********************************************************************************************************//**
  * @brief   This function handles BFTM interrupt.
