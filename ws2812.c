@@ -8,7 +8,7 @@ TM_OutputInitTypeDef 		TM_OutputInitStructure;
 PDMACH_InitTypeDef 			PDMACH_InitStructure;
 HT_PDMA_TypeDef 				PDMA_TEST_Struct;
 
-u32 WS2812[WS_PIXEL + 3][WS_24BITS];
+u32 WS2812[WS_PIXEL][WS_24BITS];
 //static u8 ws_i;
 
 bool didSetColor;
@@ -25,11 +25,11 @@ void wsInit(void) {
 			WS2812[i][j] = WS_LOGIC_0;	
 		}
 	}
-	for(i = 0; i < WS_24BITS; i++) {
-		WS2812[WS_PIXEL	+ 0][i] = 0;
-		WS2812[WS_PIXEL	+ 1][i] = 0;
-		WS2812[WS_PIXEL	+ 2][i] = 0;
-	}
+//	for(i = 0; i < WS_24BITS; i++) {
+//		for (j = 0; j < 3; j++) {
+//			WS2812[WS_PIXEL	+ j][i] = 0;
+//		}
+//	}
 	wsClearAll();
 }
 
@@ -67,6 +67,8 @@ void wsPWMConfig(void) {
 	TM_OutputInitStructure.IdleStateN = MCTM_OIS_HIGH;
 	TM_OutputInitStructure.Compare = 0;
 	TM_OutputInit(HT_MCTM0, &TM_OutputInitStructure);
+	
+	TM_Cmd(HT_MCTM0, ENABLE);
 }
 
 void wsPDMAConfig(void) {
@@ -75,12 +77,11 @@ void wsPDMAConfig(void) {
 	PDMACH_InitStructure.PDMACH_BlkCnt = WS_BLOCK;
 	PDMACH_InitStructure.PDMACH_BlkLen = 1;
 	PDMACH_InitStructure.PDMACH_DataSize = WIDTH_32BIT;
-	PDMACH_InitStructure.PDMACH_Priority = VH_PRIO;
+	PDMACH_InitStructure.PDMACH_Priority = M_PRIO;
 	PDMACH_InitStructure.PDMACH_AdrMod = SRC_ADR_LIN_INC | DST_ADR_FIX | AUTO_RELOAD;
 	PDMA_Config(PDMA_CH5, &PDMACH_InitStructure);
-	PDMA_ClearFlag(PDMA_CH5, PDMA_FLAG_TC);
+	
 	PDMA_IntConfig(PDMA_CH5, PDMA_INT_TC, ENABLE);
-	TM_PDMAConfig(HT_MCTM0, TM_PDMA_UEV, ENABLE);
 }
 
 void wsNVICConfig(void) {
@@ -108,11 +109,12 @@ void wsSetColor(u8 pixelNum, u8 color[], float mag) {
 
 void wsShow(void) {
 	wsPDMAConfig();
-	PDMA_ClearFlag(PDMA_CH5, PDMA_FLAG_TC);												// Clear PDMA_FLAG_TC of PDMA_CH5 before transferring data
+	
 	TM_PDMAConfig(HT_MCTM0, TM_PDMA_UEV, ENABLE);
 	TM_Cmd(HT_MCTM0, ENABLE);
 	PDMA_EnaCmd(PDMA_CH5, ENABLE);
 	while (PDMA_GetFlagStatus(PDMA_CH5, PDMA_FLAG_TC) == RESET);	// Wait for transferring data complete
+	PDMA_ClearFlag(PDMA_CH5, PDMA_FLAG_TC);							// Clear PDMA_FLAG_TC of PDMA_CH5 before transferring data
 	TM_PDMAConfig(HT_MCTM0, TM_PDMA_UEV, DISABLE);
 	TM_Cmd(HT_MCTM0, DISABLE);
 	PDMA_EnaCmd(PDMA_CH5, DISABLE);

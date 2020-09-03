@@ -234,6 +234,10 @@ extern u32 btTM;
 //bool startCount = FALSE;
 bool extern touchKeyDelayFlag;
 
+bool wait_flag = FALSE;
+u8 wait_time = 0;
+extern bool errorFlag;
+
 void GPTM1_IRQHandler(void) {
 	static u8 touchKeyDelayTM = 0;
 	extern u8 mode;
@@ -319,6 +323,14 @@ void GPTM1_IRQHandler(void) {
 			btFinish = TRUE;
 		}
 	}
+	
+	if (wait_flag == TRUE) {
+		wait_time += 1;
+		if (wait_time >= 5) {
+			wait_time = 0;
+			errorFlag = TRUE;
+		}
+	}
 }
 
 /*********************************************************************************************************//**
@@ -369,6 +381,10 @@ void GPTM1_IRQHandler(void) {
  ************************************************************************************************************/
 bool interval_flag = FALSE;
 u8 interval_time_count = 0;
+
+u8 real_time_count = 0;
+extern bool realTime_flag;
+
 void BFTM0_IRQHandler(void) {
 	BFTM_ClearFlag(HT_BFTM0);
 	
@@ -377,6 +393,14 @@ void BFTM0_IRQHandler(void) {
 		if (interval_time_count >= 10) {
 			interval_flag = TRUE;
 			interval_time_count = 0;
+		}
+	}
+	
+	if (realTime_flag == FALSE) {
+		real_time_count += 1;
+		if (real_time_count >= 10) {
+			realTime_flag = TRUE;
+			real_time_count = 0;
 		}
 	}
 }
@@ -480,7 +504,6 @@ void UART0_IRQHandler(void) {
 const u8 data_length = 10;
 extern u8 recieve_index, send_index;
 extern u8 data_from_esp[data_length], data_to_esp[data_length];
-extern bool errorFlag;
 u8 i;
 extern bool espFlag;
 void USART0_IRQHandler(void) { 
@@ -499,8 +522,11 @@ void USART0_IRQHandler(void) {
 			if (recieve_index >= data_length - 1) {
 				recieve_index = 0;
 				espFlag = TRUE;
+				wait_flag = FALSE;
 			} else {
 				recieve_index += 1;
+				wait_flag = TRUE;
+				wait_time = 0;
 			}
 		}
 	}
