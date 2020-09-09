@@ -12,7 +12,7 @@ u8 WS2812[WS_PIXEL + 3][WS_24BITS];
 bool didSetColor;
 
 void wsInit(void) {
-	u8 i = 0, j = 0;
+	u16 i = 0, j = 0;
 	wsCKCUConfig();
 	wsAFIOConfig();
 	wsPDMAConfig();
@@ -34,7 +34,6 @@ void wsInit(void) {
 void wsCKCUConfig(void) {
 	{ /* Enable peripheral clock                                                                              */
 		CKCU_PeripClockConfig_TypeDef CKCUClock = {{ 0 }};
-		CKCUClock.Bit.PB = 1;
 		CKCUClock.Bit.PDMA = 1;
 		CKCUClock.Bit.SPI0 = 1;
 		CKCU_PeripClockConfig(CKCUClock, ENABLE);
@@ -43,55 +42,55 @@ void wsCKCUConfig(void) {
 
 void wsAFIOConfig(void) {
 	AFIO_GPxConfig(GPIO_PB, AFIO_PIN_2, AFIO_FUN_SPI);
-  AFIO_GPxConfig(GPIO_PB, AFIO_PIN_3, AFIO_FUN_SPI);
-  AFIO_GPxConfig(GPIO_PB, AFIO_PIN_4 , AFIO_FUN_SPI);
-  AFIO_GPxConfig(GPIO_PB, AFIO_PIN_5 , AFIO_FUN_SPI);
+	AFIO_GPxConfig(GPIO_PB, AFIO_PIN_3, AFIO_FUN_SPI);
+	AFIO_GPxConfig(GPIO_PB, AFIO_PIN_4 , AFIO_FUN_SPI);
+	AFIO_GPxConfig(GPIO_PB, AFIO_PIN_5 , AFIO_FUN_SPI);
 }
 
 void wsPDMAConfig(void) {
-  /* Master Master Tx PDMA channel configuration                                                              */
-  PDMACH_InitStructure.PDMACH_SrcAddr = (u32) &WS2812;
-  PDMACH_InitStructure.PDMACH_DstAddr = (u32) &HT_SPI0->DR;
-  PDMACH_InitStructure.PDMACH_BlkCnt = WS_BLOCK;
-  PDMACH_InitStructure.PDMACH_BlkLen = 1;
-  PDMACH_InitStructure.PDMACH_DataSize = WIDTH_8BIT;
-  PDMACH_InitStructure.PDMACH_Priority = VH_PRIO;
-  PDMACH_InitStructure.PDMACH_AdrMod = SRC_ADR_LIN_INC | DST_ADR_FIX;
-  PDMA_Config(PDMA_CH1, &PDMACH_InitStructure);
+	/* Master Master Tx PDMA channel configuration                                                              */
+	PDMACH_InitStructure.PDMACH_SrcAddr = (u32) &WS2812;
+	PDMACH_InitStructure.PDMACH_DstAddr = (u32) &HT_SPI0->DR;
+	PDMACH_InitStructure.PDMACH_BlkCnt = WS_BLOCK;
+	PDMACH_InitStructure.PDMACH_BlkLen = 1;
+	PDMACH_InitStructure.PDMACH_DataSize = WIDTH_8BIT;
+	PDMACH_InitStructure.PDMACH_Priority = VH_PRIO;
+	PDMACH_InitStructure.PDMACH_AdrMod = SRC_ADR_LIN_INC | DST_ADR_FIX;
+	PDMA_Config(PDMA_CH1, &PDMACH_InitStructure);
 
-  /* Enable Master Tx, Rx GE & TC interrupt                                                                   */
-  PDMA_IntConfig(PDMA_CH1, PDMA_INT_GE | PDMA_INT_TC, ENABLE);
+	/* Enable Master Tx, Rx GE & TC interrupt                                                                   */
+	PDMA_IntConfig(PDMA_CH1, PDMA_INT_GE | PDMA_INT_TC, ENABLE);
 
-  /* Enable the corresponding PDMA channel                                                                  */
-  PDMA_EnaCmd(PDMA_CH1, ENABLE);
+	/* Enable the corresponding PDMA channel                                                                  */
+	PDMA_EnaCmd(PDMA_CH1, ENABLE);
 }
 
 void wsSPIConfig(void) {
-  /* MASTER_SEL idle state is HIGH                                                                            */
-  GPIO_PullResistorConfig(HT_GPIOB, AFIO_PIN_2, GPIO_PR_UP);
+	/* MASTER_SEL idle state is HIGH                                                                            */
+	GPIO_PullResistorConfig(HT_GPIOB, AFIO_PIN_2, GPIO_PR_UP);
 
-  /* Master configuration                                                                                     */
-  SPI_InitStructure.SPI_Mode = SPI_MASTER;
-  SPI_InitStructure.SPI_FIFO = SPI_FIFO_DISABLE;
-  SPI_InitStructure.SPI_DataLength = SPI_DATALENGTH_8;
-  SPI_InitStructure.SPI_SELMode = SPI_SEL_HARDWARE;
-  SPI_InitStructure.SPI_SELPolarity = SPI_SELPOLARITY_LOW;
-  SPI_InitStructure.SPI_CPOL = SPI_CPOL_LOW;
-  SPI_InitStructure.SPI_CPHA = SPI_CPHA_FIRST;
-  SPI_InitStructure.SPI_FirstBit = SPI_FIRSTBIT_MSB;
-  SPI_InitStructure.SPI_RxFIFOTriggerLevel = 0;
-  SPI_InitStructure.SPI_TxFIFOTriggerLevel = 0;
-  SPI_InitStructure.SPI_ClockPrescaler = WS_PRESCALER;
-  SPI_Init(HT_SPI0, &SPI_InitStructure);
+	/* Master configuration                                                                                     */
+	SPI_InitStructure.SPI_Mode = SPI_MASTER;
+	SPI_InitStructure.SPI_FIFO = SPI_FIFO_DISABLE;
+	SPI_InitStructure.SPI_DataLength = SPI_DATALENGTH_8;
+	SPI_InitStructure.SPI_SELMode = SPI_SEL_HARDWARE;
+	SPI_InitStructure.SPI_SELPolarity = SPI_SELPOLARITY_LOW;
+	SPI_InitStructure.SPI_CPOL = SPI_CPOL_LOW;
+	SPI_InitStructure.SPI_CPHA = SPI_CPHA_FIRST;
+	SPI_InitStructure.SPI_FirstBit = SPI_FIRSTBIT_MSB;
+	SPI_InitStructure.SPI_RxFIFOTriggerLevel = 0;
+	SPI_InitStructure.SPI_TxFIFOTriggerLevel = 0;
+	SPI_InitStructure.SPI_ClockPrescaler = WS_PRESCALER;
+	SPI_Init(HT_SPI0, &SPI_InitStructure);
 
-  /* Enable Master & Slave                                                                                     */
-  SPI_Cmd(HT_SPI0, ENABLE);
+	/* Enable Master & Slave                                                                                     */
+	SPI_Cmd(HT_SPI0, ENABLE);
 
-  /* Set SS as output mode for slave select                                                                 */
-  SPI_SELOutputCmd(HT_SPI0, ENABLE);
+	/* Set SS as output mode for slave select                                                                 */
+	SPI_SELOutputCmd(HT_SPI0, ENABLE);
 
-  /* Enable master Master PDMA requests later                                                                 */
-  SPI_PDMACmd(HT_SPI0, SPI_PDMAREQ_TX | SPI_PDMAREQ_RX, ENABLE);
+	/* Enable master Master PDMA requests later                                                                 */
+	SPI_PDMACmd(HT_SPI0, SPI_PDMAREQ_TX | SPI_PDMAREQ_RX, ENABLE);
 }
 
 void wsSetColor(u8 pixelNum, u8 color[], float mag) {
@@ -120,13 +119,13 @@ void wsShow(void) {
 }
 
 void wsClearAll(void) {
-	u8 i = 0;
+	u16 i = 0;
 	u8 ws_clear[3] = {0};
 	for(i = 0; i < WS_PIXEL; i++) wsSetColor(i, ws_clear, 0);
 }
 
 void wsBlinkAll(u32 wait) {
-	u8 i = 0;
+	u16 i = 0;
 	u8 ws_white[3] = {255, 255, 255};
 	u32 w;
 	for(i = 0; i < WS_PIXEL; i++) {

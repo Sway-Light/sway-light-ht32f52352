@@ -240,7 +240,7 @@ int main(void) {
 	TM_Cmd(HT_GPTM0, ENABLE);
 	TM_Cmd(HT_GPTM1, ENABLE);
 	
-	/* Analog signal setup */
+	/* Analog Signal Setup */
 	analogSwitcherSetup();
 	asSetEnable(TRUE);
 	asSetSignal(1);
@@ -248,7 +248,8 @@ int main(void) {
 	speakerEnable(TRUE);
 	
 	espUART_Configuration();
-	/* UART setup */
+	
+	/* MP3 UART Setup */
 	mp3UART_Configuration();
 	mp3ResetModule(mp3CmdQueue, &queueSize);
 	mp3SetDevice(mp3CmdQueue, &queueSize, 1); // SD Card
@@ -294,11 +295,8 @@ int main(void) {
 				if (data_from_esp[1] == 0x01) {
 					printf("Switching Mode: \r\n");
 					
-					for (i = 0; i <= 3; i++) {
-						interval += (data_from_esp[6 - i] << (8 * i));
-					}
+					for (i = 0; i <= 3; i++)  interval += (data_from_esp[6 - i] << (8 * i));
 					if (interval != 0 && on_off_interval == 0) on_off_interval = interval;
-					
 					if (interval == 0) mode = data_from_esp[2];
 					
 					if (mode == 0) {
@@ -354,7 +352,7 @@ int main(void) {
 					}
 					wsUpdateMag();
 				} else if (data_from_esp[1] == 0x03) {
-//					printf("Music Mode: \r\n");
+					printf("Music Mode: \r\n");
 					
 					M_Type = data_from_esp[2];
 					mLevel = data_from_esp[3];
@@ -372,6 +370,7 @@ int main(void) {
 						
 					}
 				} else if (data_from_esp[1] == 0x04) {
+					printf("Setting: \r\n");
 					sync = data_from_esp[2];
 					
 					if (sync == 0xFF) {
@@ -404,6 +403,7 @@ int main(void) {
 				mode = 2;
 				adcIndex = 0;
 			}
+			
 			wsUpdateMag();
 		} else if (mBtAction == btLongClick) {
 			mBtAction = btNone;
@@ -450,9 +450,6 @@ int main(void) {
 				
 				wsUpdateMag();
 				touchKeyDelayFlag = FALSE;
-//				uCounter = (HSE_VALUE >> 6);
-//				printf("%d\r\n", uCounter);
-//				while (uCounter--);
 			} else {
 				TK_CHECK = FALSE;
 				TK_1SEC = TRUE;
@@ -460,6 +457,7 @@ int main(void) {
 				status = none;
 			}
 		}
+		
 		if (mode == 3) {
 			ADC_MainRoutine();
 			if (sampleFlag) {
@@ -467,12 +465,11 @@ int main(void) {
 				RUN_FFT();
 				wsUpdateMag();
 			}
-		} else if (mode == 0) {
-			
 		}
 	}
 }
 
+/* Setup functions -----------------------------------------------------------------------------------------*/
 void NVIC_Configuration(void) {
 	/* Set the Vector Table base location at 0x00000000   */
 	NVIC_SetVectorTable(NVIC_VECTTABLE_FLASH, 0x0);
