@@ -128,9 +128,9 @@ void wsBlinkAll(u32 wait) {
 	u16 i = 0;
 	u8 ws_white[3] = {255, 255, 255};
 	u32 w;
+	wsClearAll();
 	for(i = 0; i < WS_PIXEL; i++) {
 		w = wait * 10000;
-		wsClearAll();
 		wsSetColor(i, ws_white, 0.1);
 		wsShow();
 		while(w--);

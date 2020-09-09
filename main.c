@@ -114,6 +114,7 @@ void CKOUTConfig(void);
 
 /* Private function prototypes -----------------------------------------------------------------------------*/
 void ledInit(void);
+void setLedOffset(uint8_t offset);
 u32 Touchkey_ButtonRead(void);
 void _I2C_Touchkey_AckPolling(void);
 void get_TKLR(void);
@@ -228,7 +229,7 @@ int main(void) {
 	
 	ledInit();
 	wsInit();
-	wsBlinkAll(1000);
+	wsBlinkAll(10);
 	
 	GPTM1_Configuration();
 	TM_Configuration();
@@ -738,6 +739,31 @@ void ledInit() {
 				WS_LED[j][i] = i * 16 + (15 - j);
 			}else {
 				WS_LED[j][i] = i * 16 + j;
+			}
+//			printf("%4d,", WS_LED[j][i]);
+		}
+//		printf("\r\n");
+	}
+}
+
+void setLedOffset(uint8_t offset) {
+	u8 i, j;
+//	printf("offset = %d\n", offset);
+	offset %= WS_FRQ_SIZE;
+	offset = WS_FRQ_SIZE - offset;
+	ledInit();
+	for(i = 0; i < WS_LEV_SIZE; i++) {
+		for(j = 0; j < WS_FRQ_SIZE; j++) {
+			if(i % 2 == 0) {
+				WS_LED[j][i] += offset;
+				if(WS_LED[j][i] > (WS_FRQ_SIZE-1) + i*WS_FRQ_SIZE) {
+					WS_LED[j][i] -= WS_FRQ_SIZE;
+				}
+			}else {
+				WS_LED[j][i] -= offset;
+				if(WS_LED[j][i] <= (WS_FRQ_SIZE-1) + (i - 1) * WS_FRQ_SIZE) {
+					WS_LED[j][i] += WS_FRQ_SIZE;
+				}
 			}
 //			printf("%4d,", WS_LED[j][i]);
 		}
