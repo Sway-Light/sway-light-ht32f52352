@@ -274,7 +274,7 @@ int main(void) {
 			
 			ts = *localtime(&Timestamp);
 			strftime(buf, sizeof(buf), "%a %Y-%m-%d %H:%M:%S %Z", &ts);
-			printf("\r%s", buf);
+//			printf("\r%s", buf);
 			
 			realTime_flag = FALSE;
 		}
@@ -347,7 +347,7 @@ int main(void) {
 						for (i = 0; i < 3; i++) Color[i] = data_from_esp[i + 4];
 						
 					} else if (L_Type == 0x02) {
-						
+						setLedOffset(data_from_esp[3]);
 					} else if (L_Type == 0x03) {
 						zoomValue = data_from_esp[3];
 					}
@@ -366,7 +366,7 @@ int main(void) {
 						
 						generateMusicColor();
 					} else if (M_Type == 0x02) {
-						
+						setLedOffset(data_from_esp[3]);
 					} else if (M_Type == 0x04) {
 						
 					}
@@ -987,25 +987,27 @@ void generateMusicColor(void) {
 	
 	for (color_1 = 0; color_1 < 9; color_1++) {
 		for (color_2 = 0; color_2 < 3; color_2++) {
-			if (color_1 == 0 || color_1 == 4 || color_1 == 8) {
-				if (color_1 == 0) musicColor[color_1][color_2] = low_color[color_2];
-				else if (color_1 == 4) musicColor[color_1][color_2] = mid_color[color_2];
-				else if (color_1 == 8) musicColor[color_1][color_2] = high_color[color_2];
-			} else {
-				u8 mid_low = 0, high_mid = 0;
-				if (color_1 <= 3) {
-					if (mid_color[color_2] > low_color[color_2]) mid_low = (mid_color[color_2] - low_color[color_2]) / 4 * color_1;
-					else if (mid_color[color_2] < low_color[color_2]) mid_low = (low_color[color_2] - mid_color[color_2]) / 4 * (3 - color_1);
-					else mid_low = low_color[color_2];
-					
-					musicColor[color_1][color_2] = mid_low;
-				} else if (color_1 <= 7) {
-					if (high_color[color_2] > mid_color[color_2]) high_mid = (high_color[color_2] - mid_color[color_2]) / 4 * (color_1 - 4);
-					else if (high_color[color_2] < mid_color[color_2]) high_mid = (mid_color[color_2] - high_color[color_2]) / 4 * (3 - (color_1 - 4));
-					else high_mid = mid_color[color_2];
-					
-					musicColor[color_1][color_2] = high_mid;
-				}
+			if (color_1 == 0) musicColor[color_1][color_2] = low_color[color_2];
+			else if (color_1 == 4) musicColor[color_1][color_2] = mid_color[color_2];
+			else if (color_1 == 8) musicColor[color_1][color_2] = high_color[color_2];
+		}
+	}
+	
+	for (color_1 = 0; color_1 < 9; color_1++) {
+		for (color_2 = 0; color_2 < 3; color_2++) {
+			u8 mid_low = 0, high_mid = 0;
+			if (color_1 >= 1 && color_1 <= 3) {
+				if (mid_color[color_2] > low_color[color_2]) mid_low = low_color[color_2] + (mid_color[color_2] - low_color[color_2]) / 4 * color_1;
+				else if (mid_color[color_2] < low_color[color_2]) mid_low = mid_color[color_2] + (low_color[color_2] - mid_color[color_2]) / 4 * (3 - color_1);
+				else mid_low = low_color[color_2];
+				
+				musicColor[color_1][color_2] = mid_low;
+			} else if (color_1 >= 5 && color_1 <= 7) {
+				if (high_color[color_2] > mid_color[color_2]) high_mid = mid_color[color_2] + (high_color[color_2] - mid_color[color_2]) / 4 * (color_1 - 4);
+				else if (high_color[color_2] < mid_color[color_2]) high_mid = high_color[color_2] + (mid_color[color_2] - high_color[color_2]) / 4 * (4 - (color_1 - 4));
+				else high_mid = mid_color[color_2];
+				
+				musicColor[color_1][color_2] = high_mid;
 			}
 		}
 	}
