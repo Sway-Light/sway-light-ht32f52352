@@ -124,10 +124,8 @@ void wsUpdateMag(void);
 void ADC_MainRoutine(void);
 void RUN_FFT(void);
 void speakerEnable(bool enable);
-void generateMusicColor(void);
-void AP_Time_Show(void);
-u32 AP_Time_Adjust(Time_T* AdjustTime);
-void AP_Time_Count(Time_T* CurrentTime);
+void calculateGradient(u8 i1, u8 i2, u8 Fst_color[], u8 Snd_color[]);
+void generateMusicColor(u8 level);
 static bool IsLeapYear(u32 year);
 static void delay(u32 count);
 
@@ -216,14 +214,14 @@ u8 recieve_index = 0, send_index = 0;
   * @retval None
   ***********************************************************************************************************/
 int main(void) {
-	u32 uCounter;
-	
 	NVIC_Configuration();               /* NVIC configuration                                                 */
 	CKCU_Configuration();               /* System Related configuration                                       */
 	GPIO_Configuration();               /* GPIO Related configuration                                         */
 	RETARGET_Configuration();           /* Retarget Related configuration                                     */
 	
-	generateMusicColor();
+	generateMusicColor(0x01); // high level
+	generateMusicColor(0x02); // medium level
+	generateMusicColor(0x03); // low level
 	
 	BFTM0_Configuration();
 	
@@ -308,7 +306,7 @@ int main(void) {
 						delay(10000);
 						asSetSignal(0);
 						
-						wsClearAll();
+						wsBlinkAll(10);
 						wsShow();
 						speakerEnable(FALSE);
 						
@@ -364,7 +362,7 @@ int main(void) {
 							else if (mLevel == 0x03) low_color[i] = data_from_esp[i + 4];
 						}
 						
-						generateMusicColor();
+						generateMusicColor(mLevel);
 					} else if (M_Type == 0x02) {
 						setLedOffset(data_from_esp[3]);
 					} else if (M_Type == 0x04) {
@@ -419,7 +417,7 @@ int main(void) {
 				
 				mode = 0;
 				
-				wsClearAll();
+				wsBlinkAll(10);
 				wsShow();
 				speakerEnable(FALSE);
 				
@@ -982,48 +980,40 @@ void speakerEnable(bool enable) {
 	GPIO_WriteOutBits(HT_GPIOC, GPIO_PIN_15, !enable);
 }
 
-void generateMusicColor(void) {
-	u8 color_1 = 0, color_2 = 0;
+void calculateGradient(u8 i1, u8 i2, u8 Fst_color[], u8 Snd_color[]) {
+	u8 color_level, color_rgb, value = 0;
 	
-	for (color_1 = 0; color_1 < 9; color_1++) {
-		for (color_2 = 0; color_2 < 3; color_2++) {
-			if (color_1 == 0) musicColor[color_1][color_2] = low_color[color_2];
-			else if (color_1 == 4) musicColor[color_1][color_2] = mid_color[color_2];
-			else if (color_1 == 8) musicColor[color_1][color_2] = high_color[color_2];
+	for (color_level = i1; color_level <= i2; color_level++) {
+		for (color_rgb = 0; color_rgb < 3; color_rgb++) {
+			
+			if (Snd_color[color_rgb] > Fst_color[color_rgb]) value = Fst_color[color_rgb] + (Snd_color[color_rgb] - Fst_color[color_rgb]) / 4 * color_level;
+			else if (Snd_color[color_rgb] < Fst_color[color_rgb]) value = Snd_color[color_rgb] + (Fst_color[color_rgb] - Snd_color[color_rgb]) / 4 * (3 - color_level);
+			else value = Fst_color[color_rgb];
+			
+			musicColor[color_level][color_rgb] = value;
 		}
 	}
+}
+
+void generateMusicColor(u8 level) {
+	u8 color_rgb;
 	
-	for (color_1 = 0; color_1 < 9; color_1++) {
-		for (color_2 = 0; color_2 < 3; color_2++) {
-			u8 mid_low = 0, high_mid = 0;
-			if (color_1 >= 1 && color_1 <= 3) {
-				if (mid_color[color_2] > low_color[color_2]) mid_low = low_color[color_2] + (mid_color[color_2] - low_color[color_2]) / 4 * color_1;
-				else if (mid_color[color_2] < low_color[color_2]) mid_low = mid_color[color_2] + (low_color[color_2] - mid_color[color_2]) / 4 * (3 - color_1);
-				else mid_low = low_color[color_2];
-				
-				musicColor[color_1][color_2] = mid_low;
-			} else if (color_1 >= 5 && color_1 <= 7) {
-				if (high_color[color_2] > mid_color[color_2]) high_mid = mid_color[color_2] + (high_color[color_2] - mid_color[color_2]) / 4 * (color_1 - 4);
-				else if (high_color[color_2] < mid_color[color_2]) high_mid = high_color[color_2] + (mid_color[color_2] - high_color[color_2]) / 4 * (4 - (color_1 - 4));
-				else high_mid = mid_color[color_2];
-				
-				musicColor[color_1][color_2] = high_mid;
-			}
-		}
+	for (color_rgb = 0; color_rgb < 3; color_rgb++) {
+		if (level == 0x03) musicColor[0][color_rgb] = low_color[color_rgb];
+		else if (level == 0x02) musicColor[4][color_rgb] = mid_color[color_rgb];
+		else if (level == 0x01) musicColor[8][color_rgb] = high_color[color_rgb];
 	}
 	
-//	for (color_1 = 0; color_1 < 9; color_1++) {
-//		printf("musicColor[%2d]: ", color_1);
-//		for (color_2 = 0; color_2 < 3; color_2++) {
-//			printf("%3d ", musicColor[color_1][color_2]);
+	if (level == 0x03 || level == 0x02) calculateGradient(1, 3, low_color, mid_color);
+	if (level == 0x01 || level == 0x02) calculateGradient(5, 7, mid_color, high_color);
+	
+//	for (color_level = 0; color_level < 9; color_level++) {
+//		printf("musicColor[%2d]: ", color_level);
+//		for (color_rgb = 0; color_rgb < 3; color_rgb++) {
+//			printf("%3d ", musicColor[color_level][color_rgb]);
 //		}
 //		printf("\r\n");
 //	}
-}
-
-static bool IsLeapYear(u32 year) {
-	if (((year % 4 == 0) && (year % 100 != 0) ) || (year % 400 == 0)) return TRUE;
-	else return FALSE;
 }
 
 static void delay(u32 count) {
