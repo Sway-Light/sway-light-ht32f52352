@@ -76,7 +76,7 @@ void wsSPIConfig(void) {
 	SPI_InitStructure.SPI_SELMode = SPI_SEL_HARDWARE;
 	SPI_InitStructure.SPI_SELPolarity = SPI_SELPOLARITY_LOW;
 	SPI_InitStructure.SPI_CPOL = SPI_CPOL_LOW;
-	SPI_InitStructure.SPI_CPHA = SPI_CPHA_FIRST;
+	SPI_InitStructure.SPI_CPHA = SPI_CPHA_SECOND;
 	SPI_InitStructure.SPI_FirstBit = SPI_FIRSTBIT_MSB;
 	SPI_InitStructure.SPI_RxFIFOTriggerLevel = 0;
 	SPI_InitStructure.SPI_TxFIFOTriggerLevel = 0;
@@ -93,11 +93,11 @@ void wsSPIConfig(void) {
 	SPI_PDMACmd(HT_SPI0, SPI_PDMAREQ_TX | SPI_PDMAREQ_RX, ENABLE);
 }
 
-void wsSetColor(u8 pixelNum, u8 color[], float mag) {
+void wsSetColor(u8 pixelNum, u8 color[], u8 mag) {
 	u8 color_bit;
-	u8 red = (u8)((float)color[0]*mag);
-	u8 green = (u8)((float)color[1]*mag);
-	u8 blue = (u8)((float)color[2]*mag);
+	u8 red = color[0] * mag / 100;
+	u8 green = color[1] * mag / 100;
+	u8 blue = color[2] * mag / 100;
 	
 	didSetColor = FALSE;
 	for (color_bit = 0; color_bit < 8; color_bit += 1) {
@@ -131,7 +131,7 @@ void wsBlinkAll(u32 wait) {
 	wsClearAll();
 	for(i = 0; i < WS_PIXEL; i++) {
 		w = wait * 10000;
-		wsSetColor(i, ws_white, 0.1);
+		wsSetColor(i, ws_white, 100);
 		wsShow();
 		while(w--);
 	}

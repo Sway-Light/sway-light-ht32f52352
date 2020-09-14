@@ -126,7 +126,6 @@ void RUN_FFT(void);
 void speakerEnable(bool enable);
 void calculateGradient(u8 i1, u8 i2, u8 Fst_color[], u8 Snd_color[]);
 void generateMusicColor(u8 level);
-static bool IsLeapYear(u32 year);
 static void delay(u32 count);
 
 /* Global variables ----------------------------------------------------------------------------------------*/
@@ -294,9 +293,7 @@ int main(void) {
 				if (data_from_esp[1] == 0x01) {
 					printf("Switching Mode: \r\n");
 					
-					for (i = 0; i <= 3; i++)  interval += (data_from_esp[6 - i] << (8 * i));
-					if (interval != 0 && on_off_interval == 0) on_off_interval = interval;
-					if (interval == 0) mode = data_from_esp[2];
+					mode = data_from_esp[2];
 					
 					if (mode == 0) {
 						
@@ -533,7 +530,7 @@ void GPTM1_Configuration(void) {
 	
 	TM_TimeBaseStructInit(&TimeBaseInit);                // Init GPTM1 time-base
 	TimeBaseInit.CounterMode = TM_CNT_MODE_UP;           // up count mode
-	TimeBaseInit.CounterReload = 18000;                  // interrupt in every 500us
+	TimeBaseInit.CounterReload = 36000;                  // interrupt in every 500us
 	TimeBaseInit.Prescaler = 5;
 	TimeBaseInit.PSCReloadTime = TM_PSC_RLD_IMMEDIATE;   // reload immediately
 	TM_TimeBaseInit(HT_GPTM1, &TimeBaseInit);            // write the parameters into GPTM1
@@ -930,11 +927,11 @@ void wsUpdateMag() {
 			for (j = 0; j < WS_LEV_SIZE; j += 1) {
 				//WS_LED[index][level]
 //				if (j < level) wsSetColor(WS_LED[i][j], musicColor[j], ((float)slideValue) / 100.0);
-				if (j < level) wsSetColor(WS_LED[i][j], musicColor[j], 0.3);
+				if (j < level) wsSetColor(WS_LED[i][j], musicColor[j], 100);
 				else wsSetColor(WS_LED[i][j], musicColor[j], 0);
 				if(j == wsLevel[i] - 1)
 //					wsSetColor(WS_LED[i][j], musicColor[j], ((float)slideValue) / 100.0);
-					wsSetColor(WS_LED[i][j], musicColor[j], 0.3);
+					wsSetColor(WS_LED[i][j], musicColor[j], 100);
 			}
 			
 			if(level > wsLevel[i]) {
@@ -986,9 +983,15 @@ void calculateGradient(u8 i1, u8 i2, u8 Fst_color[], u8 Snd_color[]) {
 	for (color_level = i1; color_level <= i2; color_level++) {
 		for (color_rgb = 0; color_rgb < 3; color_rgb++) {
 			
-			if (Snd_color[color_rgb] > Fst_color[color_rgb]) value = Fst_color[color_rgb] + (Snd_color[color_rgb] - Fst_color[color_rgb]) / 4 * color_level;
-			else if (Snd_color[color_rgb] < Fst_color[color_rgb]) value = Snd_color[color_rgb] + (Fst_color[color_rgb] - Snd_color[color_rgb]) / 4 * (3 - color_level);
-			else value = Fst_color[color_rgb];
+			if (Snd_color[color_rgb] > Fst_color[color_rgb]) {
+				if (i2 > 3) value = Fst_color[color_rgb] + (Snd_color[color_rgb] - Fst_color[color_rgb]) / 4 * (color_level - 4);
+				else value = Fst_color[color_rgb] + (Snd_color[color_rgb] - Fst_color[color_rgb]) / 4 * color_level;
+			} else if (Snd_color[color_rgb] < Fst_color[color_rgb]) {
+				if (i2 > 3) value = Fst_color[color_rgb] - (Fst_color[color_rgb] - Snd_color[color_rgb]) / 4 * (color_level - 4);
+				else value = Fst_color[color_rgb] - (Fst_color[color_rgb] - Snd_color[color_rgb]) / 4 * color_level;
+			} else {
+				value = Fst_color[color_rgb];
+			}
 			
 			musicColor[color_level][color_rgb] = value;
 		}
@@ -996,7 +999,7 @@ void calculateGradient(u8 i1, u8 i2, u8 Fst_color[], u8 Snd_color[]) {
 }
 
 void generateMusicColor(u8 level) {
-	u8 color_rgb;
+	u8 color_level, color_rgb;
 	
 	for (color_rgb = 0; color_rgb < 3; color_rgb++) {
 		if (level == 0x03) musicColor[0][color_rgb] = low_color[color_rgb];
