@@ -126,6 +126,7 @@ void RUN_FFT(void);
 void speakerEnable(bool enable);
 void calculateGradient(u8 i1, u8 i2, u8 Fst_color[], u8 Snd_color[]);
 void generateMusicColor(u8 level);
+void DataToESP(u8 category, u8 type);
 static void delay(u32 count);
 
 /* Global variables ----------------------------------------------------------------------------------------*/
@@ -152,7 +153,7 @@ u8 weekdayEN[7];
 
 // Touch key
 const u8 zoom = 3, slide = 2, press = 1, none = 0;
-u8 slideValue = 24, zoomValue = 2;
+u8 slideValue = 24, zoomValue = 4;
 u8 status = none;
 TouchKey_TypeDef Touch;
 bool TK_CHECK = FALSE, TK_1SEC = FALSE;
@@ -186,7 +187,7 @@ s32 gADC_Result;
 vu32 gADC_CycleEndOfConversion;
 
 // LED
-u8 WS_LED[16][9];
+u8 WS_LED[WS_FRQ_SIZE][WS_LEV_SIZE];
 
 // Button
 bool btPress = FALSE;
@@ -195,13 +196,11 @@ bool longClick = FALSE;
 u32 btTM = 0;
 
 // mp3
-//static u8 sendData[10] = {0x7E, 0xFF, 0x06, 0x0C, 0x00, 0x00, 0x00, 0xFE, 0xEF, 0xEF};
-//static u8 returnData[10];
 u8 mp3CmdQueue[QUEUE_MAX_SIZE];
 u8 queueSize = 0;
 
 // esp8266
-bool espFlag = FALSE;
+bool espFlag = FALSE, toEspFlag = FALSE;
 bool errorFlag = FALSE;
 u8 data_from_esp[10], data_to_esp[10];
 u8 recieve_index = 0, send_index = 0;
@@ -245,7 +244,15 @@ int main(void) {
 	
 	speakerEnable(TRUE);
 	
+	/* ESP8266 Setup */
 	espUART_Configuration();
+	DataToESP(0x01, 1); // Sending Power-On Message
+	while(toEspFlag == TRUE);
+	DataToESP(0x01, mode); // Sending Status Message
+	while(toEspFlag == TRUE);
+	DataToESP(0x02, 0x01); // Sending Initial Values of Brightness in Lighting Mode
+	while(toEspFlag == TRUE);
+	DataToESP(0x02, 0x03); // Sending Initial Values of Scale in Lighting Mode
 	
 	/* MP3 UART Setup */
 	mp3UART_Configuration();
@@ -291,7 +298,7 @@ int main(void) {
 		if (espFlag) {
 			u8 i;
 			u16 sum = 0, checksum = 0;
-			u32 interval = 0, time = 0;
+			u32 time = 0;
 			
 			for (i = 1; i < 7; i++) sum += data_from_esp[i];
 			checksum = (data_from_esp[7] << 8) + data_from_esp[8];
@@ -427,6 +434,7 @@ int main(void) {
 				mode = 2;
 				adcIndex = 0;
 			}
+			if (toEspFlag != TRUE) DataToESP(0x01, mode); // Sending Status Message
 			
 			wsUpdateMag();
 		} else if (mBtAction == btLongClick) {
@@ -438,9 +446,10 @@ int main(void) {
 				asSetSignal(1);
 				mp3SetVolume(mp3CmdQueue, &queueSize, 20);
 				mp3Play(mp3CmdQueue, &queueSize, 2);
-				delay(10000000);
+				delay(10000);
 				
 				mode = 0;
+				if (toEspFlag != TRUE) DataToESP(0x01, mode); // Sending Power-Off Message
 				
 				wsBlinkAll(10);
 				wsShow();
@@ -448,15 +457,19 @@ int main(void) {
 				
 				printf("off\r\n");
 			} else {
-				
+				mode = 1;
+				if (toEspFlag != TRUE) DataToESP(0x01, mode); // Sending Power-On Message
+				delay(1000);
 				mode = 3;
+				if (toEspFlag != TRUE) DataToESP(0x01, mode); // Sending Status Message
+				
 				adcIndex = 0;
 				
 				speakerEnable(TRUE);
 				asSetSignal(1);
 				mp3SetVolume(mp3CmdQueue, &queueSize, 20);
 				mp3Play(mp3CmdQueue, &queueSize, 1);
-				delay(10000000);
+				delay(10000);
 				asSetSignal(0);
 				
 				printf("on\r\n");
@@ -469,8 +482,13 @@ int main(void) {
 				Touch.Data = Touchkey_ButtonRead();
 				get_TKLR();
 //				printf("\rStatus = %d, DATA = %04X, slideValue = %3d, zoomValue = %3d", status, Touch.Data, slideValue, zoomValue);
-				if (status == slide) Slide(TK_L, TK_R, &slideValue);
-				else if (status == zoom) Zoom(TK_L, TK_R, &zoomValue);
+				if (status == slide) {
+					Slide(TK_L, TK_R, &slideValue);
+					if (toEspFlag != TRUE) DataToESP(0x02, 0x01); // Sending Brightness in Lighting Mode
+				} else if (status == zoom) {
+					Zoom(TK_L, TK_R, &zoomValue);
+					if (toEspFlag != TRUE) DataToESP(0x02, 0x03); // Sending Scale in Lighting Mode
+				}
 				
 				wsUpdateMag();
 				touchKeyDelayFlag = FALSE;
@@ -1002,7 +1020,7 @@ void speakerEnable(bool enable) {
 	// Music mute pin
 	// Enable  -> low
 	// Disable -> high
-	GPIO_WriteOutBits(HT_GPIOC, GPIO_PIN_15, !enable);
+	GPIO_WriteOutBits(HT_GPIOC, GPIO_PIN_15, (FlagStatus)!enable);
 }
 
 void calculateGradient(u8 i1, u8 i2, u8 Fst_color[], u8 Snd_color[]) {
@@ -1045,6 +1063,38 @@ void generateMusicColor(u8 level) {
 //		}
 //		printf("\r\n");
 //	}
+}
+
+void DataToESP(u8 category, u8 type) {
+	u8 i;
+	u16 checksum = 0;
+	
+	data_to_esp[0] = 0x95; // Start Bit
+	data_to_esp[1] = category;
+	data_to_esp[2] = type;
+	if (category == 0x01) {
+		for (i = 3; i <= 6; i++) data_to_esp[i] = 0x00;
+	} else if (category == 0x02) {
+		if (type == 0x01) {
+			data_to_esp[3] = slideValue;
+			for (i = 4; i <= 6; i++) data_to_esp[i] = Color[i - 4];
+		} else if (type == 0x03) {
+			data_to_esp[3] = zoomValue;
+			for (i = 4; i <= 6; i++) data_to_esp[i] = 0x00;
+		}
+	}
+	for (i = 1; i <= 6; i++) checksum += data_to_esp[i];
+	data_to_esp[7] = checksum >> 8;
+	data_to_esp[8] = checksum & 0x00FF;
+	data_to_esp[9] = 0x87; // End Bit
+	
+	printf("Sending: [");
+	for (i = 0; i < 10; i++) printf("%02X ", data_to_esp[i]);
+	printf("]\r\n");
+	
+	send_index = 0;
+	toEspFlag = TRUE;
+	USART_IntConfig(HT_USART0, USART_INT_TXDE, ENABLE);
 }
 
 static void delay(u32 count) {

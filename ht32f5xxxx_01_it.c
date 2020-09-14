@@ -494,10 +494,17 @@ const u8 data_length = 10;
 extern u8 recieve_index, send_index;
 extern u8 data_from_esp[data_length], data_to_esp[data_length];
 u8 i;
-extern bool espFlag;
+extern bool espFlag, toEspFlag;
 void USART0_IRQHandler(void) { 
 	if (USART_GetIntStatus(HT_USART0, USART_INT_TXDE) && USART_GetFlagStatus(HT_USART0, USART_FLAG_TXDE)) {
-		
+		USART_SendData(HT_USART0, data_to_esp[send_index]);
+		if (send_index >= data_length - 1) {
+			send_index = 0;
+			toEspFlag = FALSE;
+			USART_IntConfig(HT_USART0, USART_INT_TXDE, DISABLE);
+		} else {
+			send_index += 1;
+		}
 	}
 	
 	// Checksum error, clear all data.
