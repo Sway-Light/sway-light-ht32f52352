@@ -904,7 +904,7 @@ void wsUpdateMag() {
 		}
 		for (i = 0; i < WS_FRQ_SIZE; i += 1) {
 			for (j = 0; j < WS_LEV_SIZE; j += 1) {
-				if (rows[i] == 1) wsSetColor(WS_LED[i][j], Color, ((float)slideValue) / 100.0);
+				if (rows[i] == 1) wsSetColor(WS_LED[i][j], Color, slideValue);
 				else wsSetColor(WS_LED[i][j], ws_clean, 0);
 			}
 		}
@@ -927,11 +927,11 @@ void wsUpdateMag() {
 			for (j = 0; j < WS_LEV_SIZE; j += 1) {
 				//WS_LED[index][level]
 //				if (j < level) wsSetColor(WS_LED[i][j], musicColor[j], ((float)slideValue) / 100.0);
-				if (j < level) wsSetColor(WS_LED[i][j], musicColor[j], 100);
+				if (j < level) wsSetColor(WS_LED[i][j], musicColor[j], 30);
 				else wsSetColor(WS_LED[i][j], musicColor[j], 0);
 				if(j == wsLevel[i] - 1)
 //					wsSetColor(WS_LED[i][j], musicColor[j], ((float)slideValue) / 100.0);
-					wsSetColor(WS_LED[i][j], musicColor[j], 100);
+					wsSetColor(WS_LED[i][j], musicColor[j], 30);
 			}
 			
 			if(level > wsLevel[i]) {
