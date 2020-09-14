@@ -132,8 +132,6 @@ static void delay(u32 count);
 /* Private types -------------------------------------------------------------------------------------------*/
 // Switching Mode
 u8 mode = 3;
-u32 on_off_interval = 0;
-extern bool interval_flag;
 
 // Lighting Mode
 u8 L_Type;
@@ -149,6 +147,8 @@ struct tm ts;
 u32 Timestamp = 0;
 u8 sync;
 bool realTime_flag = FALSE;
+struct tm alarm;
+u8 weekdayEN[7];
 
 // Touch key
 const u8 zoom = 3, slide = 2, press = 1, none = 0;
@@ -259,19 +259,32 @@ int main(void) {
 	asSetSignal(0);
 	
 	while (1) {
-		if (interval_flag == TRUE && on_off_interval != 0) {
-			on_off_interval -= 1;
-			if (on_off_interval <= 0) printf("\r\nTime up!\r\n");
-			else printf("\r%3u secs left", on_off_interval);
-			interval_flag = FALSE;
-		}
 		if (realTime_flag == TRUE && Timestamp != 0) {
 			char buf[80];
 			Timestamp += 1;
 			
 			ts = *localtime(&Timestamp);
+			
 			strftime(buf, sizeof(buf), "%a %Y-%m-%d %H:%M:%S %Z", &ts);
-//			printf("\r%s", buf);
+			printf("\r%s", buf);
+			
+			if (weekdayEN[ts.tm_wday - 1] == 1) {
+				if (alarm.tm_hour == ts.tm_hour && alarm.tm_min == ts.tm_min && alarm.tm_sec == ts.tm_sec) {
+					if (sync == 0x00) {
+						mode = 0;
+						wsBlinkAll(10);
+						wsShow();
+						speakerEnable(FALSE);
+					} else {
+						mode = 3;
+						wsBlinkAll(10);
+						wsShow();
+						adcIndex = 0;
+						speakerEnable(TRUE);
+					}
+//					printf("ALARM ON!\r\n");
+				}
+			}
 			
 			realTime_flag = FALSE;
 		}
@@ -329,8 +342,6 @@ int main(void) {
 						if (mode == 2) printf("Switch to Lighting Mode\r\n");
 						else printf("Switch to Music Mode\r\n");
 					}
-					
-					printf("Interval: %u secs\r\n", on_off_interval);
 				} else if (data_from_esp[1] == 0x02) {
 					printf("Lighting Mode: \r\n");
 					
@@ -372,6 +383,23 @@ int main(void) {
 					if (sync == 0xFF) {
 						for (i = 0; i <= 3; i++) time += (data_from_esp[6 - i] << (8 * i));
 						Timestamp = time;
+					}
+					if (sync == 0x01 || sync == 0x00) {
+						alarm.tm_hour = data_from_esp[4];
+						alarm.tm_min = data_from_esp[5];
+						alarm.tm_sec = data_from_esp[6];
+						
+						for (i = 0; i < 7; i++) {
+							weekdayEN[6 - i] = (data_from_esp[3] >> i) & 0x01;
+							printf("%d ", weekdayEN[6 - i]);
+						}
+						printf("\r\n");
+						
+						printf("Set Alarm %s => Days: %0X, %02d:%02d:%02d\r\n",
+							(sync == 0x01) ? "On" : "Off",
+							data_from_esp[3], 
+							alarm.tm_hour, alarm.tm_min, alarm.tm_sec
+						);
 					}
 					printf("Timestamp: %d sec\r\n", Timestamp);
 				}

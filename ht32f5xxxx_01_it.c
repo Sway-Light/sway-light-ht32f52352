@@ -379,22 +379,11 @@ void GPTM1_IRQHandler(void) {
  * @brief   This function handles BFTM interrupt.
  * @retval  None
  ************************************************************************************************************/
-bool interval_flag = FALSE;
-u8 interval_time_count = 0;
-
 u8 real_time_count = 0;
 extern bool realTime_flag;
 
 void BFTM0_IRQHandler(void) {
 	BFTM_ClearFlag(HT_BFTM0);
-	
-	if (interval_flag == FALSE) {
-		interval_time_count += 1;
-		if (interval_time_count >= 10) {
-			interval_flag = TRUE;
-			interval_time_count = 0;
-		}
-	}
 	
 	if (realTime_flag == FALSE) {
 		real_time_count += 1;
