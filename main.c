@@ -127,6 +127,11 @@ void speakerEnable(bool enable);
 void calculateGradient(u8 i1, u8 i2, u8 Fst_color[], u8 Snd_color[]);
 void generateMusicColor(u8 level);
 void DataToESP(u8 category, u8 type);
+void DataFromESP(u8 command[]);
+void SwitchingMode(u8 status);
+void LightingMode(u8 type, u8 data[]);
+void MusicMode(u8 type, u8 data[]);
+void Setting(u8 syncType, u8 data[]);
 static void delay(u32 count);
 
 /* Global variables ----------------------------------------------------------------------------------------*/
@@ -246,13 +251,13 @@ int main(void) {
 	
 	/* ESP8266 Setup */
 	espUART_Configuration();
-	DataToESP(0x01, 1); // Sending Power-On Message
-	while(toEspFlag == TRUE);
-	DataToESP(0x01, mode); // Sending Status Message
-	while(toEspFlag == TRUE);
-	DataToESP(0x02, 0x01); // Sending Initial Values of Brightness in Lighting Mode
-	while(toEspFlag == TRUE);
-	DataToESP(0x02, 0x03); // Sending Initial Values of Scale in Lighting Mode
+	DataToESP(0x01, 1); 		// Sending Power-On Message
+	while(toEspFlag == TRUE);	// Wait Until Data Transferred Complete
+	DataToESP(0x01, mode); 		// Sending Status Message
+	while(toEspFlag == TRUE);	// Wait Until Data Transferred Complete
+	DataToESP(0x02, 0x01); 		// Sending Initial Values of Brightness and Color in Lighting Mode
+	while(toEspFlag == TRUE);	// Wait Until Data Transferred Complete
+	DataToESP(0x02, 0x03); 		// Sending Initial Values of Scale in Lighting Mode
 	
 	/* MP3 UART Setup */
 	mp3UART_Configuration();
@@ -310,106 +315,7 @@ int main(void) {
 			}
 			if (checksum == sum) {
 				
-				if (data_from_esp[1] == 0x01) {
-					printf("Switching Mode: \r\n");
-					
-					mode = data_from_esp[2];
-					
-					if (mode == 0) {
-						
-						asSetSignal(1);
-						mp3SetVolume(mp3CmdQueue, &queueSize, 20);
-						mp3Play(mp3CmdQueue, &queueSize, 2);
-						delay(10000);
-						asSetSignal(0);
-						
-						wsBlinkAll(10);
-						wsShow();
-						speakerEnable(FALSE);
-						
-						printf("Turn off\r\n");
-					} else if (mode == 1) {
-						
-						mode = 3;
-						adcIndex = 0;
-						
-						speakerEnable(TRUE);
-						asSetSignal(1);
-						mp3SetVolume(mp3CmdQueue, &queueSize, 20);
-						mp3Play(mp3CmdQueue, &queueSize, 1);
-						delay(10000);
-						asSetSignal(0);
-						
-						printf("Turn on\r\n");
-					} else if (mode == 2 || mode == 3) {
-						
-						if (mode == 2) adcIndex = 0;
-						wsUpdateMag();
-						
-						if (mode == 2) printf("Switch to Lighting Mode\r\n");
-						else printf("Switch to Music Mode\r\n");
-					}
-				} else if (data_from_esp[1] == 0x02) {
-					printf("Lighting Mode: \r\n");
-					
-					L_Type = data_from_esp[2];
-					if (L_Type == 0x01) {
-						Brightness = data_from_esp[3];
-						slideValue = Brightness;
-						
-						for (i = 0; i < 3; i++) Color[i] = data_from_esp[i + 4];
-						
-					} else if (L_Type == 0x02) {
-						setLedOffset(data_from_esp[3]);
-					} else if (L_Type == 0x03) {
-						zoomValue = data_from_esp[3];
-					}
-					wsUpdateMag();
-				} else if (data_from_esp[1] == 0x03) {
-					printf("Music Mode: \r\n");
-					
-					M_Type = data_from_esp[2];
-					mLevel = data_from_esp[3];
-					if (M_Type == 0x01) {
-						for (i = 0; i < 3; i++) {
-							if (mLevel == 0x01) high_color[i] = data_from_esp[i + 4];
-							else if (mLevel == 0x02) mid_color[i] = data_from_esp[i + 4];
-							else if (mLevel == 0x03) low_color[i] = data_from_esp[i + 4];
-						}
-						
-						generateMusicColor(mLevel);
-					} else if (M_Type == 0x02) {
-						setLedOffset(data_from_esp[3]);
-					} else if (M_Type == 0x04) {
-						
-					}
-				} else if (data_from_esp[1] == 0x04) {
-					printf("Setting: \r\n");
-					sync = data_from_esp[2];
-					
-					if (sync == 0xFF) {
-						for (i = 0; i <= 3; i++) time += (data_from_esp[6 - i] << (8 * i));
-						Timestamp = time;
-					}
-					if (sync == 0x01 || sync == 0x00) {
-						alarm.tm_hour = data_from_esp[4];
-						alarm.tm_min = data_from_esp[5];
-						alarm.tm_sec = data_from_esp[6];
-						
-						for (i = 0; i < 7; i++) {
-							weekdayEN[6 - i] = (data_from_esp[3] >> i) & 0x01;
-							printf("%d ", weekdayEN[6 - i]);
-						}
-						printf("\r\n");
-						
-						printf("Set Alarm %s => Days: %0X, %02d:%02d:%02d\r\n",
-							(sync == 0x01) ? "On" : "Off",
-							data_from_esp[3], 
-							alarm.tm_hour, alarm.tm_min, alarm.tm_sec
-						);
-					}
-					printf("Timestamp: %d sec\r\n", Timestamp);
-				}
+				DataFromESP(data_from_esp);
 				
 				for (i = 0; i < 9; i++) {
 					printf("0x%02X ", data_from_esp[i]);
@@ -1095,6 +1001,134 @@ void DataToESP(u8 category, u8 type) {
 	send_index = 0;
 	toEspFlag = TRUE;
 	USART_IntConfig(HT_USART0, USART_INT_TXDE, ENABLE);
+}
+
+void DataFromESP(u8 command[]) {
+	u8 i, data[4];
+	
+	for (i = 0; i <= 3; i++) data[i] = command[i + 3];
+	
+	if (command[1] == 0x01) {			// Switching Mode
+		printf("Switching Mode: \r\n");
+		SwitchingMode(command[2]);
+	} else if (command[1] == 0x02) {	// Lighting Mode
+		printf("Lighting Mode: \r\n");
+		LightingMode(command[2], data);
+	} else if (command[1] == 0x03) {	// Music Mode
+		printf("Music Mode: \r\n");
+		MusicMode(command[2], data);
+	} else if (command[1] == 0x04) {	// Setting
+		printf("Setting: \r\n");
+		Setting(command[2], data);
+	}
+}
+
+void SwitchingMode(u8 status) {
+	mode = status;
+	
+	if (mode == 0) {
+//		asSetSignal(1);
+//		mp3SetVolume(mp3CmdQueue, &queueSize, 20);
+//		mp3Play(mp3CmdQueue, &queueSize, 2);
+//		delay(10000);
+//		asSetSignal(0);
+		
+		wsBlinkAll(10);
+		wsShow();
+		speakerEnable(FALSE);
+		
+		printf("Turn off\r\n");
+	} else if (mode == 1) {
+		mode = 3;
+//		if (toEspFlag != TRUE) DataToESP(0x01, mode); // Sending Status Message
+		adcIndex = 0;
+		
+		wsBlinkAll(10);
+		wsShow();
+		speakerEnable(TRUE);
+		
+//		asSetSignal(1);
+//		mp3SetVolume(mp3CmdQueue, &queueSize, 20);
+//		mp3Play(mp3CmdQueue, &queueSize, 1);
+//		delay(10000);
+//		asSetSignal(0);
+		
+		printf("Turn on\r\n");
+	} else if (mode == 2 || mode == 3) {
+		if (mode == 2) adcIndex = 0;
+		wsUpdateMag();
+		
+		if (mode == 2) printf("Switch to Lighting Mode\r\n");
+		else printf("Switch to Music Mode\r\n");
+	}
+}
+
+void LightingMode(u8 type, u8 data[]) {
+	u8 i;
+	
+	L_Type = type;
+	if (L_Type == 0x01) {
+		Brightness = data[0];
+		slideValue = Brightness;
+		
+		for (i = 0; i < 3; i++) Color[i] = data[i + 1];
+		
+	} else if (L_Type == 0x02) {
+		setLedOffset(data[0]);
+	} else if (L_Type == 0x03) {
+		zoomValue = data[0];
+	}
+	wsUpdateMag();
+}
+
+void MusicMode(u8 type, u8 data[]) {
+	u8 i;
+	
+	M_Type = type;
+	mLevel = data[0];
+	if (M_Type == 0x01) {
+		for (i = 0; i < 3; i++) {
+			if (mLevel == 0x01) high_color[i] = data[i + 1];
+			else if (mLevel == 0x02) mid_color[i] = data[i + 1];
+			else if (mLevel == 0x03) low_color[i] = data[i + 1];
+		}
+		
+		generateMusicColor(mLevel);
+	} else if (M_Type == 0x02) {
+		setLedOffset(data[0]);
+	} else if (M_Type == 0x04) {
+		
+	}
+}
+
+void Setting(u8 syncType, u8 data[]) {
+	u8 i;
+	u32 time = 0;
+	
+	sync = syncType;
+					
+	if (sync == 0xFF) {
+		for (i = 0; i <= 3; i++) time += (data[3 - i] << (8 * i));
+		Timestamp = time;
+	}
+	if (sync == 0x01 || sync == 0x00) {
+		alarm.tm_hour = data[1];
+		alarm.tm_min = data[2];
+		alarm.tm_sec = data[3];
+		
+		for (i = 0; i < 7; i++) {
+			weekdayEN[6 - i] = (data[0] >> i) & 0x01;
+			printf("%d ", weekdayEN[6 - i]);
+		}
+		printf("\r\n");
+		
+		printf("Set Alarm %s => Days: %0X, %02d:%02d:%02d\r\n",
+			(sync == 0x01) ? "On" : "Off",
+			data[0], 
+			alarm.tm_hour, alarm.tm_min, alarm.tm_sec
+		);
+	}
+	printf("Timestamp: %d sec\r\n", Timestamp);
 }
 
 static void delay(u32 count) {
