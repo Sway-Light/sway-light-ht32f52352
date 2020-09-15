@@ -151,9 +151,9 @@ u8 musicColor[9][3];
 // Setting
 struct tm ts;
 u32 Timestamp = 0;
-u8 sync;
+u8 sync, auto_OnOff[2] = {0, 0};
 bool realTime_flag = FALSE;
-struct tm alarm;
+struct tm AutoOn, AutoOff;
 u8 weekdayEN[7];
 
 // Touch key
@@ -281,20 +281,23 @@ int main(void) {
 			printf("\r%s", buf);
 			
 			if (weekdayEN[ts.tm_wday - 1] == 1) {
-				if (alarm.tm_hour == ts.tm_hour && alarm.tm_min == ts.tm_min && alarm.tm_sec == ts.tm_sec) {
-					if (sync == 0x00) {
+				if (auto_OnOff[1] == 1 && mode != 0) {
+					if (AutoOff.tm_hour == ts.tm_hour && AutoOff.tm_min == ts.tm_min && AutoOff.tm_sec == ts.tm_sec) {
+						auto_OnOff[1] = 0;
 						mode = 0;
 						wsBlinkAll(10);
 						wsShow();
 						speakerEnable(FALSE);
-					} else {
+					}
+				} else if (auto_OnOff[0] == 1 && mode == 0) {
+					if (AutoOn.tm_hour == ts.tm_hour && AutoOn.tm_min == ts.tm_min && AutoOn.tm_sec == ts.tm_sec) {
+						auto_OnOff[0] = 0;
 						mode = 3;
 						wsBlinkAll(10);
 						wsShow();
 						adcIndex = 0;
 						speakerEnable(TRUE);
 					}
-//					printf("ALARM ON!\r\n");
 				}
 			}
 			
@@ -1112,21 +1115,33 @@ void Setting(u8 syncType, u8 data[]) {
 		Timestamp = time;
 	}
 	if (sync == 0x01 || sync == 0x00) {
-		alarm.tm_hour = data[1];
-		alarm.tm_min = data[2];
-		alarm.tm_sec = data[3];
-		
+		if (sync == 0x01) {
+			auto_OnOff[0] = 1;
+			AutoOn.tm_hour = data[1];
+			AutoOn.tm_min = data[2];
+			AutoOn.tm_sec = data[3];
+			
+			printf("Set Auto On => Days: %0X, %02d:%02d:%02d\r\n",
+				data[0], 
+				AutoOn.tm_hour, AutoOn.tm_min, AutoOn.tm_sec
+			);
+		} else if (sync == 0x00) {
+			auto_OnOff[1] = 1;
+			AutoOff.tm_hour = data[1];
+			AutoOff.tm_min = data[2];
+			AutoOff.tm_sec = data[3];
+			
+			printf("Set Auto Off => Days: %0X, %02d:%02d:%02d\r\n",
+				data[0], 
+				AutoOff.tm_hour, AutoOff.tm_min, AutoOff.tm_sec
+			);
+		}
+		printf("Sun Sat Fri Thu Wed Tue Mon\r\n");
 		for (i = 0; i < 7; i++) {
 			weekdayEN[6 - i] = (data[0] >> i) & 0x01;
-			printf("%d ", weekdayEN[6 - i]);
+			printf("%3d ", weekdayEN[6 - i]);
 		}
 		printf("\r\n");
-		
-		printf("Set Alarm %s => Days: %0X, %02d:%02d:%02d\r\n",
-			(sync == 0x01) ? "On" : "Off",
-			data[0], 
-			alarm.tm_hour, alarm.tm_min, alarm.tm_sec
-		);
 	}
 	printf("Timestamp: %d sec\r\n", Timestamp);
 }
