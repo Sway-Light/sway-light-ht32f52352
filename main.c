@@ -693,14 +693,16 @@ void ledInit() {
 	for(i = 0; i < WS_FRQ_SIZE; i++) {
 		for(j = 0; j < WS_LEV_SIZE; j++) {
 			if(i % 2 != 0) {
-				WS_LED[j][i] = i * WS_LEV_SIZE + ((WS_LEV_SIZE - 1) - j);
+				WS_LED[i][j] = i * WS_LEV_SIZE + ((WS_LEV_SIZE - 1) - j);
 			}else {
-				WS_LED[j][i] = i * WS_LEV_SIZE + j;
+				WS_LED[i][j] = i * WS_LEV_SIZE + j;
 			}
-			printf("%4d,", WS_LED[j][i]);
+			printf("%4d,", WS_LED[i][j]);
 		}
 		printf("\r\n");
 	}
+	
+	
 }
 
 void setLedOffset(uint8_t offset) {
