@@ -113,7 +113,7 @@ void CKOUTConfig(void);
 #endif
 
 /* Private function prototypes -----------------------------------------------------------------------------*/
-void ledInit(void);
+void ledInit(u8 offset);
 void setLedOffset(uint8_t offset);
 u32 Touchkey_ButtonRead(void);
 void _I2C_Touchkey_AckPolling(void);
@@ -228,7 +228,7 @@ int main(void) {
 	
 	BFTM0_Configuration();
 	
-	ledInit();
+	ledInit(0);
 	wsInit();
 	wsBlinkAll(10);
 	
@@ -675,7 +675,7 @@ void assert_error(u8* filename, u32 uline) {
 #endif
 
 /* Private functions ---------------------------------------------------------------------------------------*/
-void ledInit() {
+void ledInit(u8 offset) {
 	u8 i, j;
 //j=0 {0,  19, 20, ...}
 //j=1 {1,  18, 21, ...}
@@ -683,19 +683,17 @@ void ledInit() {
 //j=9 {9,  10, 29, ...}
 //     ^   ^   ^
 //     i=0 i=1 i=2
-	
-//j=0 { 15,  16,  47,  48,  79,  80, 111, 112, 143},
-//    { 14,  17,        ...                       },
-//                      ...
-//j=15{  0,             ...                       }
-//       ^                                      ^
-//       i=0                                    i=7
-	for(i = 0; i < WS_FRQ_SIZE; i++) {
+
+	for (i = 0; i < WS_FRQ_SIZE; i++) {
 		for(j = 0; j < WS_LEV_SIZE; j++) {
-			if(i % 2 != 0) {
-				WS_LED[i][j] = i * WS_LEV_SIZE + ((WS_LEV_SIZE - 1) - j);
+			u8 ref = i + offset;
+			
+			if (ref > WS_FRQ_SIZE - 1) ref -= WS_FRQ_SIZE;
+			
+			if (ref % 2 != 0) {
+				WS_LED[i][j] = ref * WS_LEV_SIZE + ((WS_LEV_SIZE - 1) - j);
 			}else {
-				WS_LED[i][j] = i * WS_LEV_SIZE + j;
+				WS_LED[i][j] = ref * WS_LEV_SIZE + j;
 			}
 			printf("%4d,", WS_LED[i][j]);
 		}
@@ -706,28 +704,7 @@ void ledInit() {
 }
 
 void setLedOffset(uint8_t offset) {
-	u8 i, j;
-//	printf("offset = %d\n", offset);
-	offset %= WS_FRQ_SIZE;
-	offset = WS_FRQ_SIZE - offset;
-	ledInit();
-	for(i = 0; i < WS_LEV_SIZE; i++) {
-		for(j = 0; j < WS_FRQ_SIZE; j++) {
-			if(i % 2 == 0) {
-				WS_LED[j][i] += offset;
-				if(WS_LED[j][i] > (WS_FRQ_SIZE-1) + i*WS_FRQ_SIZE) {
-					WS_LED[j][i] -= WS_FRQ_SIZE;
-				}
-			}else {
-				WS_LED[j][i] -= offset;
-				if(WS_LED[j][i] <= (WS_FRQ_SIZE-1) + (i - 1) * WS_FRQ_SIZE) {
-					WS_LED[j][i] += WS_FRQ_SIZE;
-				}
-			}
-//			printf("%4d,", WS_LED[j][i]);
-		}
-//		printf("\r\n");
-	}
+	ledInit(offset);
 }
 
 u32 Touchkey_ButtonRead(void) {
