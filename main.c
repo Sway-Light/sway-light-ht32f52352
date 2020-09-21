@@ -146,7 +146,7 @@ u8 Brightness = 0, Color[3] = {0xFF, 0xFF, 0xFF};
 // Music Mode
 u8 M_Type, mLevel;
 u8 high_color[3] = {255, 0, 0}, mid_color[3] = {255, 255, 0}, low_color[3] = {0, 255, 0};
-u8 musicColor[9][3];
+u8 musicColor[WS_LEV_SIZE][3];
 
 // Setting
 struct tm ts;
@@ -677,22 +677,29 @@ void assert_error(u8* filename, u32 uline) {
 /* Private functions ---------------------------------------------------------------------------------------*/
 void ledInit() {
 	u8 i, j;
+//j=0 {0,  19, 20, ...}
+//j=1 {1,  18, 21, ...}
+//
+//j=9 {9,  10, 29, ...}
+//     ^   ^   ^
+//     i=0 i=1 i=2
+	
 //j=0 { 15,  16,  47,  48,  79,  80, 111, 112, 143},
 //    { 14,  17,        ...                       },
 //                      ...
 //j=15{  0,             ...                       }
 //       ^                                      ^
 //       i=0                                    i=7
-	for(i = 0; i < WS_LEV_SIZE; i++) {
-		for(j = 0; j < WS_FRQ_SIZE; j++) {
-			if(i % 2 == 0) {
-				WS_LED[j][i] = i * 16 + (15 - j);
+	for(i = 0; i < WS_FRQ_SIZE; i++) {
+		for(j = 0; j < WS_LEV_SIZE; j++) {
+			if(i % 2 != 0) {
+				WS_LED[j][i] = i * WS_LEV_SIZE + ((WS_LEV_SIZE - 1) - j);
 			}else {
-				WS_LED[j][i] = i * 16 + j;
+				WS_LED[j][i] = i * WS_LEV_SIZE + j;
 			}
-//			printf("%4d,", WS_LED[j][i]);
+			printf("%4d,", WS_LED[j][i]);
 		}
-//		printf("\r\n");
+		printf("\r\n");
 	}
 }
 
@@ -877,7 +884,8 @@ void wsUpdateMag() {
 			else if(OutputSignal[i*scale + 1] < 17) level = 6;
 			else if(OutputSignal[i*scale + 1] < 20) level = 7;
 			else if(OutputSignal[i*scale + 1] < 23) level = 8;
-			else level = 9;
+			else if(OutputSignal[i*scale + 1] < 26) level = 9;
+			else level = 10;
 			
 			for (j = 0; j < WS_LEV_SIZE; j += 1) {
 				//WS_LED[index][level]
@@ -957,15 +965,20 @@ void generateMusicColor(u8 level) {
 	u8 color_level, color_rgb;
 	
 	for (color_rgb = 0; color_rgb < 3; color_rgb++) {
-		if (level == 0x03) musicColor[0][color_rgb] = low_color[color_rgb];
-		else if (level == 0x02) musicColor[4][color_rgb] = mid_color[color_rgb];
-		else if (level == 0x01) musicColor[8][color_rgb] = high_color[color_rgb];
+		if (level == 0x03) {
+			musicColor[0][color_rgb] = low_color[color_rgb];
+		} else if (level == 0x02) {
+			musicColor[4][color_rgb] = mid_color[color_rgb];
+			musicColor[5][color_rgb] = mid_color[color_rgb];
+		} else if (level == 0x01) {
+			musicColor[9][color_rgb] = high_color[color_rgb];
+		}
 	}
 	
 	if (level == 0x03 || level == 0x02) calculateGradient(1, 3, low_color, mid_color);
-	if (level == 0x01 || level == 0x02) calculateGradient(5, 7, mid_color, high_color);
+	if (level == 0x01 || level == 0x02) calculateGradient(6, 8, mid_color, high_color);
 	
-//	for (color_level = 0; color_level < 9; color_level++) {
+//	for (color_level = 0; color_level < WS_LEV_SIZE; color_level++) {
 //		printf("musicColor[%2d]: ", color_level);
 //		for (color_rgb = 0; color_rgb < 3; color_rgb++) {
 //			printf("%3d ", musicColor[color_level][color_rgb]);
