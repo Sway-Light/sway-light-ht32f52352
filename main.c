@@ -192,7 +192,7 @@ s32 gADC_Result;
 vu32 gADC_CycleEndOfConversion;
 
 // LED
-u8 WS_LED[WS_FRQ_SIZE][WS_LEV_SIZE];
+u16 WS_LED[WS_FRQ_SIZE][WS_LEV_SIZE];
 
 // Button
 bool btPress = FALSE;
@@ -390,7 +390,7 @@ int main(void) {
 				TK_CHECK = TRUE;
 				Touch.Data = Touchkey_ButtonRead();
 				get_TKLR();
-//				printf("\rStatus = %d, DATA = %04X, slideValue = %3d, zoomValue = %3d", status, Touch.Data, slideValue, zoomValue);
+				printf("\rStatus = %d, DATA = %04X, slideValue = %3d, zoomValue = %3d", status, Touch.Data, slideValue, zoomValue);
 				if (status == slide) {
 					Slide(TK_L, TK_R, &slideValue);
 					if (toEspFlag != TRUE) DataToESP(0x02, 0x01); // Sending Brightness in Lighting Mode
@@ -816,33 +816,46 @@ void wsUpdateMag() {
 	
 	if (mode == 2) {
 		// Light Source Mode
-		u8 rows[16] = {0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0};
-		for (i = 0; i < WS_FRQ_SIZE; i += 1) {
-			if (zoomValue <= 2) {
-				if (i >= 7 && i <= 8) rows[i] = 1;
-				else rows[i] = 0;
-			} else if (zoomValue <= 4) {
-				if (i >= 6 && i <= 9) rows[i] = 1;
-				else rows[i] = 0;
-			} else if (zoomValue <= 6) {
-				if (i >= 5 && i <= 10) rows[i] = 1;
-				else rows[i] = 0;
-			} else if (zoomValue <= 8) {
-				if (i >= 4 && i <= 11) rows[i] = 1;
-				else rows[i] = 0;
-			} else if (zoomValue <= 10) {
-				if (i >= 3 && i <= 12) rows[i] = 1;
-				else rows[i] = 0;
-			} else if (zoomValue <= 12) {
-				if (i >= 2 && i <= 13) rows[i] = 1;
-				else rows[i] = 0;
-			} else if (zoomValue <= 14) {
-				if (i >= 1 && i <= 14) rows[i] = 1;
-				else rows[i] = 0;
-			} else if (zoomValue <= 16) {
-				rows[i] = 1;
-			}
+		u8 rows[WS_FRQ_SIZE] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+		u8 start_row, end_row;
+		if (zoomValue % 2 != 0) {
+			start_row = WS_FRQ_SIZE / 2 - (zoomValue / 2 + 1);
+			end_row = WS_FRQ_SIZE / 2 + (zoomValue / 2 - 1);
+		} else if (zoomValue % 2 == 0) {
+			start_row = WS_FRQ_SIZE / 2 - zoomValue / 2;
+			end_row = WS_FRQ_SIZE / 2 + (zoomValue / 2 - 1);
 		}
+		for (i = start_row; i <= end_row; i++) rows[i] = 1;
+		printf("rows: ");
+		for (i = 0; i < WS_FRQ_SIZE; i++) printf("%2d ", rows[i]);
+		printf("\n");
+//		for (i = 0; i < WS_FRQ_SIZE; i += 1) {
+//			
+//			if (zoomValue <= 2) {
+//				if (i >= 7 && i <= 8) rows[i] = 1;
+//				else rows[i] = 0;
+//			} else if (zoomValue <= 4) {
+//				if (i >= 6 && i <= 9) rows[i] = 1;
+//				else rows[i] = 0;
+//			} else if (zoomValue <= 6) {
+//				if (i >= 5 && i <= 10) rows[i] = 1;
+//				else rows[i] = 0;
+//			} else if (zoomValue <= 8) {
+//				if (i >= 4 && i <= 11) rows[i] = 1;
+//				else rows[i] = 0;
+//			} else if (zoomValue <= 10) {
+//				if (i >= 3 && i <= 12) rows[i] = 1;
+//				else rows[i] = 0;
+//			} else if (zoomValue <= 12) {
+//				if (i >= 2 && i <= 13) rows[i] = 1;
+//				else rows[i] = 0;
+//			} else if (zoomValue <= 14) {
+//				if (i >= 1 && i <= 14) rows[i] = 1;
+//				else rows[i] = 0;
+//			} else if (zoomValue <= 16) {
+//				rows[i] = 1;
+//			}
+//		}
 		for (i = 0; i < WS_FRQ_SIZE; i += 1) {
 			for (j = 0; j < WS_LEV_SIZE; j += 1) {
 				if (rows[i] == 1) wsSetColor(WS_LED[i][j], Color, slideValue);

@@ -1,13 +1,13 @@
 #include "ht32.h"
 
 #define WS_PRESCALER  7
-#define WS_PIXEL      160
+#define WS_PIXEL      320
 #define WS_LOGIC_1    0xFC                            // High Bit Duty
 #define WS_LOGIC_0    0xE0                            // Low Bit Duty
 #define WS_24BITS     24                              // Number of Bits of each LED
 #define WS_BLOCK      ((WS_PIXEL + 3) * WS_24BITS)    // PDMA transfer blocks
                                                  
-#define WS_FRQ_SIZE   16
+#define WS_FRQ_SIZE   32
 #define WS_LEV_SIZE   10
 
 void wsInit(void);
