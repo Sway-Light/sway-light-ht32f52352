@@ -320,15 +320,11 @@ int main(void) {
 				
 				DataFromESP(data_from_esp);
 				
-				for (i = 0; i < 9; i++) {
-					printf("0x%02X ", data_from_esp[i]);
-				}
+				for (i = 0; i < 9; i++) printf("0x%02X ", data_from_esp[i]);
 				printf("checksum Correct!\r\n");
 				
 			} else {
 				printf("checksum Error!\r\n");
-//				printf("checksum = %04X\r\n", checksum);
-//				printf("sum = %04X\r\n", sum);
 				
 			}
 			espFlag = FALSE;
@@ -783,12 +779,14 @@ void Slide(u32 L, u32 R, u8 *Value) {
 	static u32 prevL = 0, prevR = 0;
 	
 	if (L != prevL || R != prevR) {
-		if (L < prevL || R < prevR) {
+		if (L > prevL || R > prevR) {
 			if (*Value <= 0) *Value = 0;
-			else (*Value) -= 2;
-		} else if (L > prevL || R > prevR) {
+			else if (*Value < 50) (*Value) -= 2;
+			else if (*Value >= 50) (*Value) -= 4;
+		} else if (L < prevL || R < prevR) {
 			if (*Value >= 100) *Value = 100;
-			else (*Value) += 2;
+			else if (*Value < 50) (*Value) += 2;
+			else if (*Value >= 50) (*Value) += 4;
 		}
 		prevL = L;
 		prevR = R;
