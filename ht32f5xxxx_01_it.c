@@ -259,7 +259,7 @@ void GPTM1_IRQHandler(void) {
 		sampleFlag = FALSE;
 	}
 	
-	for(j = 0; j < 16; j++) {
+	for(j = 0; j < WS_FRQ_SIZE; j++) {
 		if(wsLevelTM[j] > 0) wsLevelTM[j]--;
 	}
 	

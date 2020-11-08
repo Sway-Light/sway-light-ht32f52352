@@ -93,7 +93,7 @@ void wsSPIConfig(void) {
 	SPI_PDMACmd(HT_SPI0, SPI_PDMAREQ_TX | SPI_PDMAREQ_RX, ENABLE);
 }
 
-void wsSetColor(u8 pixelNum, u8 color[], u8 mag) {
+void wsSetColor(u16 pixelNum, u8 color[], u8 mag) {
 	u8 color_bit;
 	u8 red = color[0] * mag / 100;
 	u8 green = color[1] * mag / 100;

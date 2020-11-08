@@ -168,8 +168,8 @@ s16 j = 0;
 
 // WS2812B
 u8 ws_white[3] = {255, 255, 255}, ws_clean[3] = {0, 0, 0};
-u8 wsLevel[16] = {1};
-u8 wsLevelTM[16] = {0};
+u8 wsLevel[WS_FRQ_SIZE] = {1};
+u8 wsLevelTM[WS_FRQ_SIZE] = {0};
 
 // Touch key
 #define I2C_TOUCHKEY_SPEED         (100000)          /*!< I2C speed                                          */
@@ -192,7 +192,7 @@ s32 gADC_Result;
 vu32 gADC_CycleEndOfConversion;
 
 // LED
-u8 WS_LED[WS_FRQ_SIZE][WS_LEV_SIZE];
+u16 WS_LED[WS_FRQ_SIZE][WS_LEV_SIZE];
 
 // Button
 bool btPress = FALSE;
@@ -386,7 +386,7 @@ int main(void) {
 				TK_CHECK = TRUE;
 				Touch.Data = Touchkey_ButtonRead();
 				get_TKLR();
-//				printf("\rStatus = %d, DATA = %04X, slideValue = %3d, zoomValue = %3d", status, Touch.Data, slideValue, zoomValue);
+				printf("\rStatus = %d, DATA = %04X, slideValue = %3d, zoomValue = %3d", status, Touch.Data, slideValue, zoomValue);
 				if (status == slide) {
 					Slide(TK_L, TK_R, &slideValue);
 					if (toEspFlag != TRUE) DataToESP(0x02, 0x01); // Sending Brightness in Lighting Mode
@@ -864,6 +864,7 @@ void wsUpdateMag() {
 			else if(OutputSignal[i*scale + 1] < 26) level = 9;
 			else level = 10;
 			
+			// set fft leds
 			for (j = 0; j < WS_LEV_SIZE; j += 1) {
 				//WS_LED[index][level]
 //				if (j < level) wsSetColor(WS_LED[i][j], musicColor[j], ((float)slideValue) / 100.0);
@@ -873,7 +874,7 @@ void wsUpdateMag() {
 //					wsSetColor(WS_LED[i][j], musicColor[j], ((float)slideValue) / 100.0);
 					wsSetColor(WS_LED[i][j], musicColor[j], 30);
 			}
-			
+			// update drop down timer
 			if(level > wsLevel[i]) {
 				wsLevel[i] = level;
 				wsLevelTM[i] = 50;
