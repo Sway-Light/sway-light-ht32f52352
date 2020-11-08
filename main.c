@@ -168,8 +168,8 @@ s16 j = 0;
 
 // WS2812B
 u8 ws_white[3] = {255, 255, 255}, ws_clean[3] = {0, 0, 0};
-u8 wsLevel[16] = {1};
-u8 wsLevelTM[16] = {0};
+u8 wsLevel[WS_FRQ_SIZE] = {1};
+u8 wsLevelTM[WS_FRQ_SIZE] = {0};
 
 // Touch key
 #define I2C_TOUCHKEY_SPEED         (100000)          /*!< I2C speed                                          */
@@ -320,15 +320,11 @@ int main(void) {
 				
 				DataFromESP(data_from_esp);
 				
-				for (i = 0; i < 9; i++) {
-					printf("0x%02X ", data_from_esp[i]);
-				}
+				for (i = 0; i < 9; i++) printf("0x%02X ", data_from_esp[i]);
 				printf("checksum Correct!\r\n");
 				
 			} else {
 				printf("checksum Error!\r\n");
-//				printf("checksum = %04X\r\n", checksum);
-//				printf("sum = %04X\r\n", sum);
 				
 			}
 			espFlag = FALSE;
@@ -783,12 +779,14 @@ void Slide(u32 L, u32 R, u8 *Value) {
 	static u32 prevL = 0, prevR = 0;
 	
 	if (L != prevL || R != prevR) {
-		if (L < prevL || R < prevR) {
+		if (L > prevL || R > prevR) {
 			if (*Value <= 0) *Value = 0;
-			else (*Value) -= 2;
-		} else if (L > prevL || R > prevR) {
+			else if (*Value < 50) (*Value) -= 2;
+			else if (*Value >= 50) (*Value) -= 4;
+		} else if (L < prevL || R < prevR) {
 			if (*Value >= 100) *Value = 100;
-			else (*Value) += 2;
+			else if (*Value < 50) (*Value) += 2;
+			else if (*Value >= 50) (*Value) += 4;
 		}
 		prevL = L;
 		prevR = R;
@@ -879,6 +877,7 @@ void wsUpdateMag() {
 			else if(OutputSignal[i*scale + 1] < 26) level = 9;
 			else level = 10;
 			
+			// set fft leds
 			for (j = 0; j < WS_LEV_SIZE; j += 1) {
 				//WS_LED[index][level]
 //				if (j < level) wsSetColor(WS_LED[i][j], musicColor[j], ((float)slideValue) / 100.0);
@@ -888,7 +887,7 @@ void wsUpdateMag() {
 //					wsSetColor(WS_LED[i][j], musicColor[j], ((float)slideValue) / 100.0);
 					wsSetColor(WS_LED[i][j], musicColor[j], 30);
 			}
-			
+			// update drop down timer
 			if(level > wsLevel[i]) {
 				wsLevel[i] = level;
 				wsLevelTM[i] = 50;

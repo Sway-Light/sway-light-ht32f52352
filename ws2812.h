@@ -15,7 +15,7 @@ void wsCKCUConfig(void);
 void wsAFIOConfig(void);
 void wsPDMAConfig(void);
 void wsSPIConfig(void);
-void wsSetColor(u8 pixelNum, u8 color[], u8 mag);
+void wsSetColor(u16 pixelNum, u8 color[], u8 mag);
 void wsShow(void);
 void wsClearAll(void);
 void wsBlinkAll(u32 wait);
