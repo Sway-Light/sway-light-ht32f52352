@@ -120,6 +120,7 @@ void _I2C_Touchkey_AckPolling(void);
 void get_TKLR(void);
 void Slide(u32, u32, u8*);
 void Zoom(u32, u32, u8*);
+u8 *showRows(u8 Value);
 void wsUpdateMag(void);
 void ADC_MainRoutine(void);
 void RUN_FFT(void);
@@ -158,6 +159,12 @@ u8 weekdayEN[7];
 
 // Touch key
 const u8 zoom = 3, slide = 2, press = 1, none = 0;
+typedef struct {
+	u8 slide;
+	u8 zoom;
+	u8 offset;
+} Z_O;
+Z_O Light, Music;
 u8 slideValue = 24, zoomValue = 4;
 u8 status = none;
 TouchKey_TypeDef Touch;
@@ -222,6 +229,11 @@ int main(void) {
 	GPIO_Configuration();               /* GPIO Related configuration                                         */
 	RETARGET_Configuration();           /* Retarget Related configuration                                     */
 	
+	Light.slide = 24;
+	Light.zoom = 6;
+	Music.slide = 30;
+	Music.zoom = 6;
+	
 	generateMusicColor(0x01); // high level
 	generateMusicColor(0x02); // medium level
 	generateMusicColor(0x03); // low level
@@ -231,6 +243,8 @@ int main(void) {
 	ledInit(0);
 	wsInit();
 	wsBlinkAll(10);
+	
+	speakerEnable(TRUE);
 	
 	GPTM1_Configuration();
 	TM_Configuration();
@@ -247,17 +261,15 @@ int main(void) {
 	asSetEnable(TRUE);
 	asSetSignal(1);
 	
-	speakerEnable(TRUE);
-	
 	/* ESP8266 Setup */
 	espUART_Configuration();
 	DataToESP(0x01, 1); 		// Sending Power-On Message
 	while(toEspFlag == TRUE);	// Wait Until Data Transferred Complete
 	DataToESP(0x01, mode); 		// Sending Status Message
 	while(toEspFlag == TRUE);	// Wait Until Data Transferred Complete
-	DataToESP(0x02, 0x01); 		// Sending Initial Values of Brightness and Color in Lighting Mode
+	DataToESP(0x02, 0x01); 		// Sending Initial Values of Color in Lighting Mode
 	while(toEspFlag == TRUE);	// Wait Until Data Transferred Complete
-	DataToESP(0x02, 0x03); 		// Sending Initial Values of Scale in Lighting Mode
+	DataToESP(0x02, 0x05); 		// Sending Initial Values of Scale in Lighting Mode
 	
 	/* MP3 UART Setup */
 	mp3UART_Configuration();
@@ -306,7 +318,6 @@ int main(void) {
 		if (espFlag) {
 			u8 i;
 			u16 sum = 0, checksum = 0;
-			u32 time = 0;
 			
 			for (i = 1; i < 7; i++) sum += data_from_esp[i];
 			checksum = (data_from_esp[7] << 8) + data_from_esp[8];
@@ -322,15 +333,13 @@ int main(void) {
 				
 				for (i = 0; i < 9; i++) printf("0x%02X ", data_from_esp[i]);
 				printf("checksum Correct!\r\n");
-				
 			} else {
 				printf("checksum Error!\r\n");
-				
 			}
 			espFlag = FALSE;
 		}
 		if (mBtAction == btClick) {
-			static bool flag = TRUE;
+//			static bool flag = TRUE;
 			mBtAction = btNone;
 			printf("click\r\n");
 			
@@ -386,13 +395,17 @@ int main(void) {
 				TK_CHECK = TRUE;
 				Touch.Data = Touchkey_ButtonRead();
 				get_TKLR();
-				printf("\rStatus = %d, DATA = %04X, slideValue = %3d, zoomValue = %3d", status, Touch.Data, slideValue, zoomValue);
+//				printf("\rStatus = %d, DATA = %04X, slideValue = %3d, zoomValue = %3d", status, Touch.Data, Light.slide, Light.zoom);
 				if (status == slide) {
-					Slide(TK_L, TK_R, &slideValue);
-					if (toEspFlag != TRUE) DataToESP(0x02, 0x01); // Sending Brightness in Lighting Mode
+//					Slide(TK_L, TK_R, &slideValue);
+					if (mode == 2) Slide(TK_L, TK_R, &Light.slide);
+					else if (mode == 3) Slide(TK_L, TK_R, &Music.slide);
+					if (toEspFlag != TRUE) DataToESP(mode, 0x05); // Sending Brightness in Lighting Mode
 				} else if (status == zoom) {
-					Zoom(TK_L, TK_R, &zoomValue);
-					if (toEspFlag != TRUE) DataToESP(0x02, 0x03); // Sending Scale in Lighting Mode
+//					Zoom(TK_L, TK_R, &zoomValue);
+					if (mode == 2) Zoom(TK_L, TK_R, &Light.zoom);
+					else if (mode == 3) Zoom(TK_L, TK_R, &Music.zoom);
+					if (toEspFlag != TRUE) DataToESP(mode, 0x05); // Sending Scale in Lighting Mode
 				}
 				
 				wsUpdateMag();
@@ -481,7 +494,7 @@ void GPTM1_Configuration(void) {
 	
 	TM_TimeBaseStructInit(&TimeBaseInit);                // Init GPTM1 time-base
 	TimeBaseInit.CounterMode = TM_CNT_MODE_UP;           // up count mode
-	TimeBaseInit.CounterReload = 36000;                  // interrupt in every 500us
+	TimeBaseInit.CounterReload = 24000;                  // interrupt in every 500us
 	TimeBaseInit.Prescaler = 5;
 	TimeBaseInit.PSCReloadTime = TM_PSC_RLD_IMMEDIATE;   // reload immediately
 	TM_TimeBaseInit(HT_GPTM1, &TimeBaseInit);            // write the parameters into GPTM1
@@ -798,15 +811,37 @@ void Zoom(u32 L, u32 R, u8* Value) {
 	
 	if (L != prevL || R != prevR) {
 		if (L > prevL || R < prevR) {
-			if (*Value <= 2) *Value = 2;
-			else (*Value) -= 2;
+			if (*Value <= 6) *Value = 6;
+			else (*Value) -= 1;
 		} else if (L < prevL || R > prevR) {
-			if (*Value >= 16) *Value = 16;
-			else (*Value) += 2;
+			if (*Value >= WS_FRQ_SIZE) *Value = WS_FRQ_SIZE;
+			else (*Value) += 1;
 		}
 		prevL = L;
 		prevR = R;
 	}
+}
+
+u8 *showRows(u8 Value) {
+	u8 i;
+	static u8 rows[WS_FRQ_SIZE] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+	u8 start_row, end_row;
+	if (Value % 2 != 0) {
+		start_row = WS_FRQ_SIZE / 2 - (Value / 2 + 1);
+		end_row = WS_FRQ_SIZE / 2 + (Value / 2 - 1);
+	} else if (Value % 2 == 0) {
+		start_row = WS_FRQ_SIZE / 2 - Value / 2;
+		end_row = WS_FRQ_SIZE / 2 + (Value / 2 - 1);
+	}
+	for (i = 0; i < WS_FRQ_SIZE; i++) {
+		if (i >= start_row && i <= end_row) rows[i] = 1;
+		else rows[i] = 0;
+	}
+//	printf("rows: ");
+//	for (i = 0; i < WS_FRQ_SIZE; i++) printf("%2d ", rows[i]);
+//	printf("\r\n");
+	
+	return rows;
 }
 
 void wsUpdateMag() {
@@ -814,88 +849,60 @@ void wsUpdateMag() {
 	
 	if (mode == 2) {
 		// Light Source Mode
-		u8 rows[WS_FRQ_SIZE] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-		u8 start_row, end_row;
-		if (zoomValue % 2 != 0) {
-			start_row = WS_FRQ_SIZE / 2 - (zoomValue / 2 + 1);
-			end_row = WS_FRQ_SIZE / 2 + (zoomValue / 2 - 1);
-		} else if (zoomValue % 2 == 0) {
-			start_row = WS_FRQ_SIZE / 2 - zoomValue / 2;
-			end_row = WS_FRQ_SIZE / 2 + (zoomValue / 2 - 1);
-		}
-		for (i = start_row; i <= end_row; i++) rows[i] = 1;
-		printf("rows: ");
-		for (i = 0; i < WS_FRQ_SIZE; i++) printf("%2d ", rows[i]);
-		printf("\n");
-//		for (i = 0; i < WS_FRQ_SIZE; i += 1) {
-//			
-//			if (zoomValue <= 2) {
-//				if (i >= 7 && i <= 8) rows[i] = 1;
-//				else rows[i] = 0;
-//			} else if (zoomValue <= 4) {
-//				if (i >= 6 && i <= 9) rows[i] = 1;
-//				else rows[i] = 0;
-//			} else if (zoomValue <= 6) {
-//				if (i >= 5 && i <= 10) rows[i] = 1;
-//				else rows[i] = 0;
-//			} else if (zoomValue <= 8) {
-//				if (i >= 4 && i <= 11) rows[i] = 1;
-//				else rows[i] = 0;
-//			} else if (zoomValue <= 10) {
-//				if (i >= 3 && i <= 12) rows[i] = 1;
-//				else rows[i] = 0;
-//			} else if (zoomValue <= 12) {
-//				if (i >= 2 && i <= 13) rows[i] = 1;
-//				else rows[i] = 0;
-//			} else if (zoomValue <= 14) {
-//				if (i >= 1 && i <= 14) rows[i] = 1;
-//				else rows[i] = 0;
-//			} else if (zoomValue <= 16) {
-//				rows[i] = 1;
-//			}
-//		}
+		u8 *rows = showRows(Light.zoom);
+		
 		for (i = 0; i < WS_FRQ_SIZE; i += 1) {
 			for (j = 0; j < WS_LEV_SIZE; j += 1) {
-				if (rows[i] == 1) wsSetColor(WS_LED[i][j], Color, slideValue);
+				if (rows[i] == 1) wsSetColor(WS_LED[i][j], Color, Light.slide);
 				else wsSetColor(WS_LED[i][j], ws_clean, 0);
 			}
 		}
 	} else if (mode == 3) {
 		// Music Mode
 		u8 level;
+		u8 *rows = showRows(Music.zoom);
+		u8 scale = WS_FRQ_SIZE / Music.zoom;
+		u8 exactOutput[WS_FRQ_SIZE] = {0}, n = 0;
 		
+//		printf("\r");
 		for (i = 0; i < WS_FRQ_SIZE; i += 1) {
-			u8 scale = 2;
-			if (OutputSignal[i*scale + 1] < 3) level = 1;
-			else if(OutputSignal[i*scale + 1] < 5) level = 2;
-			else if(OutputSignal[i*scale + 1] < 8) level = 3;
-			else if(OutputSignal[i*scale + 1] < 11) level = 4;
-			else if(OutputSignal[i*scale + 1] < 14) level = 5;
-			else if(OutputSignal[i*scale + 1] < 17) level = 6;
-			else if(OutputSignal[i*scale + 1] < 20) level = 7;
-			else if(OutputSignal[i*scale + 1] < 23) level = 8;
-			else if(OutputSignal[i*scale + 1] < 26) level = 9;
-			else level = 10;
-			
+			if (i % scale == 0) {
+				if (OutputSignal[i] < 3) level = 1;
+				else if(OutputSignal[i] < 5) level = 2;
+				else if(OutputSignal[i] < 8) level = 3;
+				else if(OutputSignal[i] < 11) level = 4;
+				else if(OutputSignal[i] < 14) level = 5;
+				else if(OutputSignal[i] < 17) level = 6;
+				else if(OutputSignal[i] < 20) level = 7;
+				else if(OutputSignal[i] < 23) level = 8;
+				else if(OutputSignal[i] < 26) level = 9;
+				else level = 10;
+				
+				exactOutput[i / scale] = level;
+//				printf("%-3.0f ", OutputSignal[i]);
+			}
+		}
 			// set fft leds
+		for (i = 0; i < WS_FRQ_SIZE; i += 1) {
 			for (j = 0; j < WS_LEV_SIZE; j += 1) {
 				//WS_LED[index][level]
-//				if (j < level) wsSetColor(WS_LED[i][j], musicColor[j], ((float)slideValue) / 100.0);
-				if (j < level) wsSetColor(WS_LED[i][j], musicColor[j], 30);
-				else wsSetColor(WS_LED[i][j], musicColor[j], 0);
-				if(j == wsLevel[i] - 1)
-//					wsSetColor(WS_LED[i][j], musicColor[j], ((float)slideValue) / 100.0);
-					wsSetColor(WS_LED[i][j], musicColor[j], 30);
+				if (rows[i] == 1) {
+					if (j < exactOutput[n]) wsSetColor(WS_LED[i][j], musicColor[j], Music.slide);
+					else wsSetColor(WS_LED[i][j], musicColor[j], 0);
+				}
+				if((j == wsLevel[i] - 1) && rows[i] == 1) wsSetColor(WS_LED[i][j], musicColor[j], Music.slide);
 			}
 			// update drop down timer
-			if(level > wsLevel[i]) {
-				wsLevel[i] = level;
+			if(exactOutput[n] > wsLevel[i]) {
+				wsLevel[i] = exactOutput[n];
 				wsLevelTM[i] = 50;
 			}
 			if(wsLevelTM[i] == 0) {
-				if(wsLevel[i] >= level) wsLevel[i]--;
+				if(wsLevel[i] >= exactOutput[n]) wsLevel[i]--;
 				wsLevelTM[i] = 8;
 			}
+			
+			if (rows[i] == 1) n += 1;
 		}
 	}
 	
@@ -953,7 +960,8 @@ void calculateGradient(u8 i1, u8 i2, u8 Fst_color[], u8 Snd_color[]) {
 }
 
 void generateMusicColor(u8 level) {
-	u8 color_level, color_rgb;
+//	u8 color_level;
+	u8 color_rgb;
 	
 	for (color_rgb = 0; color_rgb < 3; color_rgb++) {
 		if (level == 0x03) {
@@ -989,11 +997,23 @@ void DataToESP(u8 category, u8 type) {
 		for (i = 3; i <= 6; i++) data_to_esp[i] = 0x00;
 	} else if (category == 0x02) {
 		if (type == 0x01) {
-			data_to_esp[3] = slideValue;
+//			data_to_esp[3] = slideValue;
 			for (i = 4; i <= 6; i++) data_to_esp[i] = Color[i - 4];
 		} else if (type == 0x03) {
 			data_to_esp[3] = zoomValue;
 			for (i = 4; i <= 6; i++) data_to_esp[i] = 0x00;
+		} else if (type == 0x05) {
+			data_to_esp[3] = Light.offset;
+			data_to_esp[4] = Light.zoom;
+			data_to_esp[5] = Light.slide;
+			data_to_esp[6] = 0x00;
+		}
+	} else if (category == 0x03) {
+		if (type == 0x05) {
+			data_to_esp[3] = Music.offset;
+			data_to_esp[4] = Music.zoom;
+			data_to_esp[5] = Music.slide;
+			data_to_esp[6] = 0x00;
 		}
 	}
 	for (i = 1; i <= 6; i++) checksum += data_to_esp[i];
@@ -1034,11 +1054,6 @@ void SwitchingMode(u8 status) {
 	mode = status;
 	
 	if (mode == 0) {
-//		asSetSignal(1);
-//		mp3SetVolume(mp3CmdQueue, &queueSize, 20);
-//		mp3Play(mp3CmdQueue, &queueSize, 2);
-//		delay(10000);
-//		asSetSignal(0);
 		
 		wsBlinkAll(10);
 		wsShow();
@@ -1053,12 +1068,6 @@ void SwitchingMode(u8 status) {
 		wsBlinkAll(10);
 		wsShow();
 		speakerEnable(TRUE);
-		
-//		asSetSignal(1);
-//		mp3SetVolume(mp3CmdQueue, &queueSize, 20);
-//		mp3Play(mp3CmdQueue, &queueSize, 1);
-//		delay(10000);
-//		asSetSignal(0);
 		
 		printf("Turn on\r\n");
 	} else if (mode == 2 || mode == 3) {
@@ -1076,14 +1085,20 @@ void LightingMode(u8 type, u8 data[]) {
 	L_Type = type;
 	if (L_Type == 0x01) {
 		Brightness = data[0];
-		slideValue = Brightness;
+//		slideValue = Brightness;
 		
 		for (i = 0; i < 3; i++) Color[i] = data[i + 1];
 		
 	} else if (L_Type == 0x02) {
-		setLedOffset(data[0]);
+//		setLedOffset(data[0]);
 	} else if (L_Type == 0x03) {
 		zoomValue = data[0];
+	} else if (L_Type == 0x05) {
+		Light.offset = data[0];
+		setLedOffset(Light.offset);
+		
+		Light.zoom = data[1];
+		Light.slide = data[2];
 	}
 	wsUpdateMag();
 }
@@ -1102,9 +1117,15 @@ void MusicMode(u8 type, u8 data[]) {
 		
 		generateMusicColor(mLevel);
 	} else if (M_Type == 0x02) {
-		setLedOffset(data[0]);
+//		setLedOffset(data[0]);
 	} else if (M_Type == 0x04) {
 		
+	} else if (M_Type == 0x05) {
+		Music.offset = data[0];
+		setLedOffset(Music.offset);
+		
+		Music.zoom = data[1];
+		Music.slide = data[2];
 	}
 }
 

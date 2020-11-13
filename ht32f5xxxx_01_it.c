@@ -244,7 +244,7 @@ void GPTM1_IRQHandler(void) {
 	
 	//FFT & LED
 	extern bool startShow, sampleFlag, initFlag;
-	extern u8 wsLevelTM[16];
+	extern u8 wsLevelTM[WS_FRQ_SIZE];
 	static bool btFinish = TRUE;
 	
 	u8 j = 0;
