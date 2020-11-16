@@ -704,9 +704,9 @@ void ledInit(u8 offset) {
 			}else {
 				WS_LED[i][j] = ref * WS_LEV_SIZE + j;
 			}
-			printf("%4d,", WS_LED[i][j]);
+//			printf("%4d,", WS_LED[i][j]);
 		}
-		printf("\r\n");
+//		printf("\r\n");
 	}
 	
 	
@@ -889,6 +889,8 @@ void wsUpdateMag() {
 				if (rows[i] == 1) {
 					if (j < exactOutput[n]) wsSetColor(WS_LED[i][j], musicColor[j], Music.slide);
 					else wsSetColor(WS_LED[i][j], musicColor[j], 0);
+				} else {
+					wsSetColor(WS_LED[i][j], musicColor[j], 0);
 				}
 				if((j == wsLevel[i] - 1) && rows[i] == 1) wsSetColor(WS_LED[i][j], musicColor[j], Music.slide);
 			}
@@ -1094,11 +1096,12 @@ void LightingMode(u8 type, u8 data[]) {
 	} else if (L_Type == 0x03) {
 		zoomValue = data[0];
 	} else if (L_Type == 0x05) {
-		Light.offset = data[0];
-		setLedOffset(Light.offset);
-		
-		Light.zoom = data[1];
-		Light.slide = data[2];
+		if (data[0] != Light.offset) {
+			Light.offset = data[0];
+			setLedOffset(Light.offset);
+		}
+		if (data[1] != Light.zoom) Light.zoom = data[1];
+		if (data[2] != Light.slide) Light.slide = data[2];
 	}
 	wsUpdateMag();
 }
@@ -1121,11 +1124,12 @@ void MusicMode(u8 type, u8 data[]) {
 	} else if (M_Type == 0x04) {
 		
 	} else if (M_Type == 0x05) {
-		Music.offset = data[0];
-		setLedOffset(Music.offset);
-		
-		Music.zoom = data[1];
-		Music.slide = data[2];
+		if (data[0] != Music.offset) {
+			Music.offset = data[0];
+			setLedOffset(Music.offset);
+		}
+		if (data[1] != Music.zoom) Music.zoom = data[1];
+		if (data[2] != Music.slide) Music.slide = data[2];
 	}
 }
 
