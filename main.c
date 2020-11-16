@@ -118,7 +118,7 @@ void setLedOffset(uint8_t offset);
 u32 Touchkey_ButtonRead(void);
 void _I2C_Touchkey_AckPolling(void);
 void get_TKLR(void);
-void Slide(u32, u32, u8*);
+void Slide(u32, u32, s8*);
 void Zoom(u32, u32, u8*);
 u8 *showRows(u8 Value);
 void wsUpdateMag(void);
@@ -133,6 +133,7 @@ void SwitchingMode(u8 status);
 void LightingMode(u8 type, u8 data[]);
 void MusicMode(u8 type, u8 data[]);
 void Setting(u8 syncType, u8 data[]);
+void On_Effect(u8 wait, bool reverse);
 static void delay(u32 count);
 
 /* Global variables ----------------------------------------------------------------------------------------*/
@@ -160,7 +161,7 @@ u8 weekdayEN[7];
 // Touch key
 const u8 zoom = 3, slide = 2, press = 1, none = 0;
 typedef struct {
-	u8 slide;
+	s8 slide;
 	u8 zoom;
 	u8 offset;
 } Z_O;
@@ -242,7 +243,7 @@ int main(void) {
 	
 	ledInit(0);
 	wsInit();
-	wsBlinkAll(10);
+	On_Effect(20, FALSE);
 	
 	speakerEnable(TRUE);
 	
@@ -296,17 +297,21 @@ int main(void) {
 				if (auto_OnOff[1] == 1 && mode != 0) {
 					if (AutoOff.tm_hour == ts.tm_hour && AutoOff.tm_min == ts.tm_min && AutoOff.tm_sec == ts.tm_sec) {
 						auto_OnOff[1] = 0;
+						On_Effect(20, TRUE);
 						mode = 0;
-						wsBlinkAll(10);
-						wsShow();
+						if (toEspFlag != TRUE) DataToESP(0x01, mode); // Sending Power-Off Message
 						speakerEnable(FALSE);
 					}
 				} else if (auto_OnOff[0] == 1 && mode == 0) {
 					if (AutoOn.tm_hour == ts.tm_hour && AutoOn.tm_min == ts.tm_min && AutoOn.tm_sec == ts.tm_sec) {
 						auto_OnOff[0] = 0;
+						On_Effect(20, FALSE);
 						mode = 3;
-						wsBlinkAll(10);
-						wsShow();
+						mode = 1;
+						if (toEspFlag != TRUE) DataToESP(0x01, mode); // Sending Power-On Message
+						delay(1000);
+						mode = 3;
+						if (toEspFlag != TRUE) DataToESP(0x01, mode); // Sending Status Message
 						adcIndex = 0;
 						speakerEnable(TRUE);
 					}
@@ -356,21 +361,15 @@ int main(void) {
 			printf("long click\r\n");
 			
 			if (mode != 0) {
-				
-				asSetSignal(1);
-				mp3SetVolume(mp3CmdQueue, &queueSize, 20);
-				mp3Play(mp3CmdQueue, &queueSize, 2);
-				delay(10000);
-				
+				On_Effect(20, TRUE);
 				mode = 0;
 				if (toEspFlag != TRUE) DataToESP(0x01, mode); // Sending Power-Off Message
 				
-				wsBlinkAll(10);
-				wsShow();
 				speakerEnable(FALSE);
 				
 				printf("off\r\n");
 			} else {
+				On_Effect(20, FALSE);
 				mode = 1;
 				if (toEspFlag != TRUE) DataToESP(0x01, mode); // Sending Power-On Message
 				delay(1000);
@@ -380,11 +379,6 @@ int main(void) {
 				adcIndex = 0;
 				
 				speakerEnable(TRUE);
-				asSetSignal(1);
-				mp3SetVolume(mp3CmdQueue, &queueSize, 20);
-				mp3Play(mp3CmdQueue, &queueSize, 1);
-				delay(10000);
-				asSetSignal(0);
 				
 				printf("on\r\n");
 			}
@@ -788,7 +782,7 @@ void get_TKLR(void) {
 	}
 }
 
-void Slide(u32 L, u32 R, u8 *Value) {
+void Slide(u32 L, u32 R, s8 *Value) {
 	static u32 prevL = 0, prevR = 0;
 	
 	if (L != prevL || R != prevR) {
@@ -1002,19 +996,27 @@ void DataToESP(u8 category, u8 type) {
 //			data_to_esp[3] = slideValue;
 			for (i = 4; i <= 6; i++) data_to_esp[i] = Color[i - 4];
 		} else if (type == 0x03) {
-			data_to_esp[3] = zoomValue;
+//			data_to_esp[3] = zoomValue;
 			for (i = 4; i <= 6; i++) data_to_esp[i] = 0x00;
 		} else if (type == 0x05) {
 			data_to_esp[3] = Light.offset;
 			data_to_esp[4] = Light.zoom;
+			
+			if (Light.slide <= 0) Light.slide = 0;
+			else if (Light.slide >= 100) Light.slide = 100;
 			data_to_esp[5] = Light.slide;
+			
 			data_to_esp[6] = 0x00;
 		}
 	} else if (category == 0x03) {
 		if (type == 0x05) {
 			data_to_esp[3] = Music.offset;
 			data_to_esp[4] = Music.zoom;
+			
+			if (Music.slide <= 0) Music.slide = 0;
+			else if (Music.slide >= 100) Music.slide = 100;
 			data_to_esp[5] = Music.slide;
+			
 			data_to_esp[6] = 0x00;
 		}
 	}
@@ -1057,18 +1059,16 @@ void SwitchingMode(u8 status) {
 	
 	if (mode == 0) {
 		
-		wsBlinkAll(10);
-		wsShow();
+		On_Effect(20, TRUE);
 		speakerEnable(FALSE);
 		
 		printf("Turn off\r\n");
 	} else if (mode == 1) {
 		mode = 3;
 //		if (toEspFlag != TRUE) DataToESP(0x01, mode); // Sending Status Message
-		adcIndex = 0;
+		On_Effect(20, FALSE);
 		
-		wsBlinkAll(10);
-		wsShow();
+		adcIndex = 0;
 		speakerEnable(TRUE);
 		
 		printf("Turn on\r\n");
@@ -1173,6 +1173,44 @@ void Setting(u8 syncType, u8 data[]) {
 		printf("\r\n");
 	}
 	printf("Timestamp: %d sec\r\n", Timestamp);
+}
+
+void On_Effect(u8 wait, bool reverse) {
+	const u8 grad_size = 9;
+	u8 gradient[WS_LEV_SIZE * 2 + grad_size] = {
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		40, 25, 20, 17, 10, 8, 4, 2, 1,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	};
+	u8 i, j;
+	u8 start_index = 0;
+	u32 w = 0;
+	if (!reverse) {
+		while (start_index < (WS_LEV_SIZE + grad_size)) {
+			for (i = 0; i < WS_FRQ_SIZE; i++) {
+				for (j = 0; j < WS_LEV_SIZE; j++) {
+					wsSetColor(WS_LED[i][j], ws_white, gradient[start_index + j]);
+				}
+			}
+			start_index += 1;
+			w = wait * 10000;
+			wsShow();
+			while(w--);
+		}
+	} else {
+		start_index = 0;
+		while (start_index < (WS_LEV_SIZE + grad_size + 1)) {
+			for (i = 0; i < WS_FRQ_SIZE; i++) {
+				for (j = 0; j < WS_LEV_SIZE; j++) {
+					wsSetColor(WS_LED[i][(WS_LEV_SIZE - 1) - j], ws_white, gradient[start_index + j]);
+				}
+			}
+			start_index += 1;
+			w = wait * 10000;
+			wsShow();
+			while(w--);
+		}
+	}
 }
 
 static void delay(u32 count) {
