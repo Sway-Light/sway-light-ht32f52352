@@ -134,12 +134,15 @@ void LightingMode(u8 type, u8 data[]);
 void MusicMode(u8 type, u8 data[]);
 void Setting(u8 syncType, u8 data[]);
 void On_Effect(u8 wait, bool reverse);
+void Switch_Effect(u8 wait, u8 max_brightness);
+void Light_Animation(u8 brightness);
+void Music_Animation(u8 brightness);
 static void delay(u32 count);
 
 /* Global variables ----------------------------------------------------------------------------------------*/
 /* Private types -------------------------------------------------------------------------------------------*/
 // Switching Mode
-u8 mode = 3;
+u8 mode = 0, curr_mode = 3;
 
 // Lighting Mode
 u8 L_Type;
@@ -243,9 +246,8 @@ int main(void) {
 	
 	ledInit(0);
 	wsInit();
-	On_Effect(20, FALSE);
 	
-	speakerEnable(TRUE);
+	speakerEnable(FALSE);
 	
 	GPTM1_Configuration();
 	TM_Configuration();
@@ -257,15 +259,8 @@ int main(void) {
 	TM_Cmd(HT_GPTM0, ENABLE);
 	TM_Cmd(HT_GPTM1, ENABLE);
 	
-	/* Analog Signal Setup */
-	analogSwitcherSetup();
-	asSetEnable(TRUE);
-	asSetSignal(1);
-	
 	/* ESP8266 Setup */
 	espUART_Configuration();
-	DataToESP(0x01, 1); 		// Sending Power-On Message
-	while(toEspFlag == TRUE);	// Wait Until Data Transferred Complete
 	DataToESP(0x01, mode); 		// Sending Status Message
 	while(toEspFlag == TRUE);	// Wait Until Data Transferred Complete
 	DataToESP(0x02, 0x01); 		// Sending Initial Values of Color in Lighting Mode
@@ -348,12 +343,18 @@ int main(void) {
 			mBtAction = btNone;
 			printf("click\r\n");
 			
-			if (mode == 2) mode = 3;
-			else if (mode == 3) {
+			if (mode == 2) {
+				Switch_Effect(5, Light.slide);
+				mode = 3;
+				curr_mode = mode;
+			} else if (mode == 3) {
+				Switch_Effect(5, Music.slide);
 				mode = 2;
+				curr_mode = mode;
 				adcIndex = 0;
 			}
 			if (toEspFlag != TRUE) DataToESP(0x01, mode); // Sending Status Message
+			
 			
 			wsUpdateMag();
 		} else if (mBtAction == btLongClick) {
@@ -373,10 +374,11 @@ int main(void) {
 				mode = 1;
 				if (toEspFlag != TRUE) DataToESP(0x01, mode); // Sending Power-On Message
 				delay(1000);
-				mode = 3;
+				mode = curr_mode;
 				if (toEspFlag != TRUE) DataToESP(0x01, mode); // Sending Status Message
 				
-				adcIndex = 0;
+				if (mode == 3) adcIndex = 0;
+				else wsUpdateMag();
 				
 				speakerEnable(TRUE);
 				
@@ -839,68 +841,8 @@ u8 *showRows(u8 Value) {
 }
 
 void wsUpdateMag() {
-	u8 i, j;
-	
-	if (mode == 2) {
-		// Light Source Mode
-		u8 *rows = showRows(Light.zoom);
-		
-		for (i = 0; i < WS_FRQ_SIZE; i += 1) {
-			for (j = 0; j < WS_LEV_SIZE; j += 1) {
-				if (rows[i] == 1) wsSetColor(WS_LED[i][j], Color, Light.slide);
-				else wsSetColor(WS_LED[i][j], ws_clean, 0);
-			}
-		}
-	} else if (mode == 3) {
-		// Music Mode
-		u8 level;
-		u8 *rows = showRows(Music.zoom);
-		u8 scale = WS_FRQ_SIZE / Music.zoom;
-		u8 exactOutput[WS_FRQ_SIZE] = {0}, n = 0;
-		
-//		printf("\r");
-		for (i = 0; i < WS_FRQ_SIZE; i += 1) {
-			if (i % scale == 0) {
-				if (OutputSignal[i] < 3) level = 1;
-				else if(OutputSignal[i] < 5) level = 2;
-				else if(OutputSignal[i] < 8) level = 3;
-				else if(OutputSignal[i] < 11) level = 4;
-				else if(OutputSignal[i] < 14) level = 5;
-				else if(OutputSignal[i] < 17) level = 6;
-				else if(OutputSignal[i] < 20) level = 7;
-				else if(OutputSignal[i] < 23) level = 8;
-				else if(OutputSignal[i] < 26) level = 9;
-				else level = 10;
-				
-				exactOutput[i / scale] = level;
-//				printf("%-3.0f ", OutputSignal[i]);
-			}
-		}
-			// set fft leds
-		for (i = 0; i < WS_FRQ_SIZE; i += 1) {
-			for (j = 0; j < WS_LEV_SIZE; j += 1) {
-				//WS_LED[index][level]
-				if (rows[i] == 1) {
-					if (j < exactOutput[n]) wsSetColor(WS_LED[i][j], musicColor[j], Music.slide);
-					else wsSetColor(WS_LED[i][j], musicColor[j], 0);
-				} else {
-					wsSetColor(WS_LED[i][j], musicColor[j], 0);
-				}
-				if((j == wsLevel[i] - 1) && rows[i] == 1) wsSetColor(WS_LED[i][j], musicColor[j], Music.slide);
-			}
-			// update drop down timer
-			if(exactOutput[n] > wsLevel[i]) {
-				wsLevel[i] = exactOutput[n];
-				wsLevelTM[i] = 50;
-			}
-			if(wsLevelTM[i] == 0) {
-				if(wsLevel[i] >= exactOutput[n]) wsLevel[i]--;
-				wsLevelTM[i] = 8;
-			}
-			
-			if (rows[i] == 1) n += 1;
-		}
-	}
+	if (mode == 2) Light_Animation(Light.slide);		// Light Mode
+	else if (mode == 3) Music_Animation(Music.slide);	// Music Mode
 	
 	startShow = TRUE;
 }
@@ -1054,30 +996,38 @@ void DataFromESP(u8 command[]) {
 	}
 }
 
-void SwitchingMode(u8 status) {
+void SwitchingMode(u8 status) {	
 	mode = status;
 	
 	if (mode == 0) {
-		
 		On_Effect(20, TRUE);
 		speakerEnable(FALSE);
 		
 		printf("Turn off\r\n");
 	} else if (mode == 1) {
-		mode = 3;
+		mode = curr_mode;
 //		if (toEspFlag != TRUE) DataToESP(0x01, mode); // Sending Status Message
 		On_Effect(20, FALSE);
 		
 		adcIndex = 0;
 		speakerEnable(TRUE);
 		
-		printf("Turn on\r\n");
-	} else if (mode == 2 || mode == 3) {
-		if (mode == 2) adcIndex = 0;
 		wsUpdateMag();
 		
-		if (mode == 2) printf("Switch to Lighting Mode\r\n");
-		else printf("Switch to Music Mode\r\n");
+		printf("Turn on\r\n");
+	} else if (mode == 2) {
+		mode = 3;
+		Switch_Effect(5, Music.slide);
+		mode = 2;
+		curr_mode = mode;
+		adcIndex = 0;
+		
+		wsUpdateMag();
+	} else if (mode == 3) {
+		mode = 2;
+		Switch_Effect(5, Light.slide);
+		mode = 3;
+		curr_mode = mode;
 	}
 }
 
@@ -1210,6 +1160,94 @@ void On_Effect(u8 wait, bool reverse) {
 			wsShow();
 			while(w--);
 		}
+	}
+}
+
+void Switch_Effect(u8 wait, u8 max_brightness) {
+	s8 effect;
+	u32 w;
+	
+	effect = max_brightness;
+	
+	while (effect >= 0) {
+		if (mode == 2) Light_Animation(effect);
+		else Music_Animation(effect);
+		effect -= 1;
+		w = (wait * 10000) * ((100 - max_brightness) / 100);
+		wsShow();
+		while(w--);
+	}
+	effect = 0;
+	while (effect <= max_brightness) {
+		if (mode == 3) Light_Animation(effect);
+		else Music_Animation(effect);
+		effect += 1;
+		w = (wait * 10000) * ((100 - max_brightness) / 100);
+		wsShow();
+		while(w--);
+	}
+}
+
+void Light_Animation(u8 brightness) {
+	u8 i, j;
+	u8 *rows = showRows(Light.zoom);
+	
+	for (i = 0; i < WS_FRQ_SIZE; i += 1) {
+		for (j = 0; j < WS_LEV_SIZE; j += 1) {
+			if (rows[i] == 1) wsSetColor(WS_LED[i][j], Color, brightness);
+			else wsSetColor(WS_LED[i][j], ws_clean, 0);
+		}
+	}
+}
+
+void Music_Animation(u8 brightness) {
+	u8 i, j;
+	u8 level;
+	u8 *rows = showRows(Music.zoom);
+	u8 scale = WS_FRQ_SIZE / Music.zoom;
+	u8 exactOutput[WS_FRQ_SIZE] = {0}, n = 0;
+	
+//		printf("\r");
+	for (i = 0; i < WS_FRQ_SIZE; i += 1) {
+		if (i % scale == 0) {
+			if (OutputSignal[i] < 3) level = 1;
+			else if(OutputSignal[i] < 5) level = 2;
+			else if(OutputSignal[i] < 8) level = 3;
+			else if(OutputSignal[i] < 11) level = 4;
+			else if(OutputSignal[i] < 14) level = 5;
+			else if(OutputSignal[i] < 17) level = 6;
+			else if(OutputSignal[i] < 20) level = 7;
+			else if(OutputSignal[i] < 23) level = 8;
+			else if(OutputSignal[i] < 26) level = 9;
+			else level = 10;
+			
+			exactOutput[i / scale] = level;
+//				printf("%-3.0f ", OutputSignal[i]);
+		}
+	}
+		// set fft leds
+	for (i = 0; i < WS_FRQ_SIZE; i += 1) {
+		for (j = 0; j < WS_LEV_SIZE; j += 1) {
+			//WS_LED[index][level]
+			if (rows[i] == 1) {
+				if (j < exactOutput[n]) wsSetColor(WS_LED[i][j], musicColor[j], brightness);
+				else wsSetColor(WS_LED[i][j], musicColor[j], 0);
+			} else {
+				wsSetColor(WS_LED[i][j], musicColor[j], 0);
+			}
+			if((j == wsLevel[i] - 1) && rows[i] == 1) wsSetColor(WS_LED[i][j], musicColor[j], brightness);
+		}
+		// update drop down timer
+		if(exactOutput[n] > wsLevel[i]) {
+			wsLevel[i] = exactOutput[n];
+			wsLevelTM[i] = 50;
+		}
+		if(wsLevelTM[i] == 0) {
+			if(wsLevel[i] >= exactOutput[n]) wsLevel[i]--;
+			wsLevelTM[i] = 8;
+		}
+		
+		if (rows[i] == 1) n += 1;
 	}
 }
 
