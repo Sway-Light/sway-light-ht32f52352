@@ -190,6 +190,8 @@ bool touchKeyDelayFlag = FALSE;
 
 // FFT
 #define TEST_LENGTH_SAMPLES 128
+u16 ref_bit;
+bool refFlag;
 bool sampleFlag = FALSE, startShow = FALSE, initFlag = FALSE;
 s32 InputSignal[TEST_LENGTH_SAMPLES];
 float32_t fftData[TEST_LENGTH_SAMPLES];
@@ -249,6 +251,9 @@ int main(void) {
 	
 	speakerEnable(FALSE);
 	
+	ref_bit = 0;
+	refFlag = TRUE;
+	
 	GPTM1_Configuration();
 	TM_Configuration();
 	I2C_Configuration();
@@ -296,6 +301,9 @@ int main(void) {
 						mode = 0;
 						if (toEspFlag != TRUE) DataToESP(0x01, mode); // Sending Power-Off Message
 						speakerEnable(FALSE);
+						
+						ref_bit = 0;
+						refFlag = TRUE;
 					}
 				} else if (auto_OnOff[0] == 1 && mode == 0) {
 					if (AutoOn.tm_hour == ts.tm_hour && AutoOn.tm_min == ts.tm_min && AutoOn.tm_sec == ts.tm_sec) {
@@ -367,6 +375,9 @@ int main(void) {
 				if (toEspFlag != TRUE) DataToESP(0x01, mode); // Sending Power-Off Message
 				
 				speakerEnable(FALSE);
+				
+				ref_bit = 0;
+				refFlag = TRUE;
 				
 				printf("off\r\n");
 			} else {
@@ -848,13 +859,23 @@ void wsUpdateMag() {
 }
 
 void ADC_MainRoutine(void) {
+	u8 i;
+	u32 total = 0;
 	if (gADC_CycleEndOfConversion) {
 		if (adcIndex < TEST_LENGTH_SAMPLES) {
 			InputSignal[adcIndex] = gADC_Result;
 			InputSignal[adcIndex + 1] = 0;
 			adcIndex += 2;
 		} else {
-			sampleFlag = TRUE;
+			if (refFlag == TRUE) {
+				for (i = 0; i < TEST_LENGTH_SAMPLES; i += 2) total += InputSignal[i];
+				ref_bit = total / (TEST_LENGTH_SAMPLES / 2);
+				refFlag = FALSE;
+				
+//				printf("ref_bit = %d\r\n", ref_bit);
+			} else {
+				sampleFlag = TRUE;
+			}
 		}
 		gADC_CycleEndOfConversion = FALSE;
 	}
@@ -1002,6 +1023,9 @@ void SwitchingMode(u8 status) {
 	if (mode == 0) {
 		On_Effect(20, TRUE);
 		speakerEnable(FALSE);
+		
+		ref_bit = 0;
+		refFlag = TRUE;
 		
 		printf("Turn off\r\n");
 	} else if (mode == 1) {
@@ -1222,7 +1246,7 @@ void Music_Animation(u8 brightness) {
 			else level = 10;
 			
 			exactOutput[i / scale] = level;
-//				printf("%-3.0f ", OutputSignal[i]);
+//			printf("%-3.0f ", OutputSignal[i]);
 		}
 	}
 		// set fft leds

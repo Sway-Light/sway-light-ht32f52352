@@ -171,6 +171,8 @@ void SysTick_Handler(void) {
  ************************************************************************************************************/
 extern vu32 gADC_CycleEndOfConversion;
 extern u8 slideValue;
+extern u16 ref_bit;
+extern bool refFlag;
 
 void ADC_IRQHandler(void) {
 	extern u32 gADC_Result;
@@ -181,8 +183,8 @@ void ADC_IRQHandler(void) {
 	if (ADC_GetIntStatus(HT_ADC0, ADC_INT_CYCLE_EOC) == SET) {
 		ADC_ClearIntPendingBit(HT_ADC0, ADC_FLAG_CYCLE_EOC);
 		gADC_CycleEndOfConversion = TRUE;
-		gADC_Result = (HT_ADC0->DR[0] & 0x0FFF) - 2048;
-		gADC_Result *= 32;
+		gADC_Result = (HT_ADC0->DR[0] & 0x0FFF) - ref_bit;
+		if (refFlag == FALSE) gADC_Result *= 32;
 	}
 }
 
