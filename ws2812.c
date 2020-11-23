@@ -95,9 +95,9 @@ void wsSPIConfig(void) {
 
 void wsSetColor(u16 pixelNum, u8 color[], u8 mag) {
 	u8 color_bit;
-	u8 red = color[0] * mag / 100;
-	u8 green = color[1] * mag / 100;
-	u8 blue = color[2] * mag / 100;
+	u8 red = color[0] * mag / 255;
+	u8 green = color[1] * mag / 255;
+	u8 blue = color[2] * mag / 255;
 	
 	didSetColor = FALSE;
 	for (color_bit = 0; color_bit < 8; color_bit += 1) {
