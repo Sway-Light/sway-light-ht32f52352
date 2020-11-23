@@ -223,8 +223,8 @@ u8 queueSize = 0;
 // esp8266
 bool espFlag = FALSE, toEspFlag = FALSE;
 bool errorFlag = FALSE;
-u8 data_from_esp[10], data_to_esp[10];
-u8 recieve_index = 0, send_index = 0;
+u8 data_from_esp[10], data_to_esp[10], data_queue[12][10] = {{0x00}};
+u8 recieve_index = 0, send_index = 0, dataQ_index = 0;
 
 /* Private variables ---------------------------------------------------------------------------------------*/
 /* Global functions ----------------------------------------------------------------------------------------*/
@@ -313,21 +313,21 @@ int main(void) {
 			
 			realTime_flag = FALSE;
 		}
-		if (espFlag) {
+		if (espFlag || data_queue[dataQ_index][0] != 0x95) {
 			u8 i;
 			u16 sum = 0, checksum = 0;
 			
-			for (i = 1; i < 7; i++) sum += data_from_esp[i];
-			checksum = (data_from_esp[7] << 8) + data_from_esp[8];
+			for (i = 1; i < 7; i++) sum += data_queue[dataQ_index][i];
+			checksum = (data_queue[dataQ_index][7] << 8) + data_queue[dataQ_index][8];
 
 //			printf("\r\n");
-			if (!(data_from_esp[0] == 0x95)) {
+			if (!(data_queue[dataQ_index][0] == 0x95)) {
 //				printf("start byte Error\r\n");
 				errorFlag = TRUE;
 			}
 			if (checksum == sum) {
 				
-				DataFromESP(data_from_esp);
+				DataFromESP(data_queue[dataQ_index]);
 				
 //				for (i = 0; i < 9; i++) printf("0x%02X ", data_from_esp[i]);
 //				printf("checksum Correct!\r\n");
@@ -335,6 +335,9 @@ int main(void) {
 //				printf("checksum Error!\r\n");
 			}
 			espFlag = FALSE;
+			for (i = 0; i < 7; i++) data_queue[dataQ_index][i] = 0x00;
+			if (dataQ_index < 11) dataQ_index += 1;
+			else dataQ_index = 0;
 		}
 		if (mBtAction == btClick) {
 //			static bool flag = TRUE;

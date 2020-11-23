@@ -494,8 +494,9 @@ void UART0_IRQHandler(void) {
  ************************************************************************************************************/
 const u8 data_length = 10;
 extern u8 recieve_index, send_index;
-extern u8 data_from_esp[data_length], data_to_esp[data_length];
+extern u8 data_from_esp[data_length], data_to_esp[data_length], data_queue[12][data_length];
 u8 i;
+static u8 queue_index = 0;
 extern bool espFlag, toEspFlag;
 void USART0_IRQHandler(void) { 
 	if (USART_GetIntStatus(HT_USART0, USART_INT_TXDE) && USART_GetFlagStatus(HT_USART0, USART_FLAG_TXDE)) {
@@ -517,8 +518,11 @@ void USART0_IRQHandler(void) {
 	} else {
 		if (USART_GetFlagStatus(HT_USART0, USART_FLAG_RXDR)) {
 			data_from_esp[recieve_index] = USART_ReceiveData(HT_USART0);
+			data_queue[queue_index][recieve_index] = data_from_esp[recieve_index];
 			if (recieve_index >= data_length - 1) {
 				recieve_index = 0;
+				if (queue_index < 11) queue_index += 1;
+				else queue_index = 0;
 				espFlag = TRUE;
 				wait_flag = FALSE;
 			} else {
