@@ -1198,27 +1198,25 @@ void On_Effect(u8 wait, bool reverse) {
 }
 
 void Switch_Effect(u8 wait, u8 max_brightness) {
-	s8 effect;
+	u8 effect;
 	u32 w;
 	
-	effect = max_brightness;
-	
-	while (effect >= 0) {
-		if (mode == 2) Light_Animation(effect);
-		else Music_Animation(effect);
-		effect -= 1;
-		w = (wait * 10000) * ((100 - max_brightness) / 100);
+	while (effect < max_brightness) {
+		if (mode == 2) Light_Animation(max_brightness - effect);
+		else Music_Animation(max_brightness - effect);
+		effect += 1;
+		w = (wait * 10000) * (max_brightness / 255);
 		wsShow();
 		while(w--);
 	}
 	effect = 0;
 	if (mode == 2) max_brightness = Music.slide;
 	else max_brightness = Light.slide;
-	while (effect <= max_brightness) {
+	while (effect < max_brightness) {
 		if (mode == 3) Light_Animation(effect);
 		else Music_Animation(effect);
 		effect += 1;
-		w = (wait * 10000) * ((100 - max_brightness) / 100);
+		w = (wait * 10000) * (max_brightness / 255);
 		wsShow();
 		while(w--);
 	}
