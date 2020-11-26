@@ -165,13 +165,13 @@ u8 weekdayEN[7];
 
 // Touch key
 const u8 zoom = 3, slide = 2, press = 1, none = 0;
-typedef struct {
-	u8 slide;
-	u8 zoom;
-	u8 offset;
-} Z_O;
-Z_O Light, Music;
-//u8 slideValue = 24, zoomValue = 4;
+//typedef struct {
+//	u8 slide;
+//	u8 zoom;
+//	u8 offset;
+//} Z_O;
+//Z_O Light, Music;
+u8 slideValue = 60, zoomValue = 6, offsetValue = 0;
 u8 status = none;
 TouchKey_TypeDef Touch;
 bool TK_CHECK = FALSE, TK_1SEC = FALSE;
@@ -197,7 +197,7 @@ u16 ref_bit;
 bool refFlag;
 bool sampleFlag = FALSE, startShow = FALSE, initFlag = FALSE;
 s32 InputSignal[TEST_LENGTH_SAMPLES];
-float32_t fftData[TEST_LENGTH_SAMPLES];
+float32_t fftData[TEST_LENGTH_SAMPLES] = {0};
 static float32_t OutputSignal[TEST_LENGTH_SAMPLES / 2];
 uint32_t fftSize = TEST_LENGTH_SAMPLES / 2;
 uint32_t ifftFlag = 0;
@@ -223,8 +223,8 @@ u8 queueSize = 0;
 // esp8266
 bool espFlag = FALSE, toEspFlag = FALSE;
 bool errorFlag = FALSE;
-u8 data_from_esp[10], data_to_esp[10], data_queue[12][10] = {{0x00}};
-u8 recieve_index = 0, send_index = 0, dataQ_index = 0;
+u8 data_from_esp[10], data_to_esp[10];
+u8 recieve_index = 0, send_index = 0;
 
 /* Private variables ---------------------------------------------------------------------------------------*/
 /* Global functions ----------------------------------------------------------------------------------------*/
@@ -238,10 +238,10 @@ int main(void) {
 	GPIO_Configuration();               /* GPIO Related configuration                                         */
 	RETARGET_Configuration();           /* Retarget Related configuration                                     */
 	
-	Light.slide = 61;
-	Light.zoom = 6;
-	Music.slide = 76;
-	Music.zoom = 6;
+//	Light.slide = 61;
+//	Light.zoom = 6;
+//	Music.slide = 76;
+//	Music.zoom = 6;
 	
 	generateMusicColor(0x01); // high level
 	generateMusicColor(0x02); // medium level
@@ -313,21 +313,21 @@ int main(void) {
 			
 			realTime_flag = FALSE;
 		}
-		if (espFlag || data_queue[dataQ_index][0] != 0x95) {
+		if (espFlag) {
 			u8 i;
 			u16 sum = 0, checksum = 0;
 			
-			for (i = 1; i < 7; i++) sum += data_queue[dataQ_index][i];
-			checksum = (data_queue[dataQ_index][7] << 8) + data_queue[dataQ_index][8];
+			for (i = 1; i < 7; i++) sum += data_from_esp[i];
+			checksum = (data_from_esp[7] << 8) + data_from_esp[8];
 
 //			printf("\r\n");
-			if (!(data_queue[dataQ_index][0] == 0x95)) {
+			if (!(data_from_esp[0] == 0x95)) {
 //				printf("start byte Error\r\n");
 				errorFlag = TRUE;
 			}
 			if (checksum == sum) {
 				
-				DataFromESP(data_queue[dataQ_index]);
+				DataFromESP(data_from_esp);
 				
 //				for (i = 0; i < 9; i++) printf("0x%02X ", data_from_esp[i]);
 //				printf("checksum Correct!\r\n");
@@ -335,9 +335,6 @@ int main(void) {
 //				printf("checksum Error!\r\n");
 			}
 			espFlag = FALSE;
-			for (i = 0; i < 7; i++) data_queue[dataQ_index][i] = 0x00;
-			if (dataQ_index < 11) dataQ_index += 1;
-			else dataQ_index = 0;
 		}
 		if (mBtAction == btClick) {
 //			static bool flag = TRUE;
@@ -345,11 +342,11 @@ int main(void) {
 //			printf("click\r\n");
 			
 			if (mode == 2) {
-				Switch_Effect(5, Light.slide);
+				Switch_Effect(5, slideValue);
 				mode = 3;
 				curr_mode = mode;
 			} else if (mode == 3) {
-				Switch_Effect(5, Music.slide);
+				Switch_Effect(5, slideValue);
 				mode = 2;
 				curr_mode = mode;
 				adcIndex = 0;
@@ -396,14 +393,14 @@ int main(void) {
 				get_TKLR();
 //				printf("\rStatus = %d, DATA = %04X, slideValue = %3d, zoomValue = %3d", status, Touch.Data, Light.slide, Light.zoom);
 				if (status == slide) {
-//					Slide(TK_L, TK_R, &slideValue);
-					if (mode == 2) Slide(TK_L, TK_R, &Light.slide);
-					else if (mode == 3) Slide(TK_L, TK_R, &Music.slide);
+					Slide(TK_L, TK_R, &slideValue);
+//					if (mode == 2) Slide(TK_L, TK_R, &Light.slide);
+//					else if (mode == 3) Slide(TK_L, TK_R, &Music.slide);
 					if (toEspFlag != TRUE) DataToESP(mode, 0x05); // Sending Brightness in Lighting Mode
 				} else if (status == zoom) {
-//					Zoom(TK_L, TK_R, &zoomValue);
-					if (mode == 2) Zoom(TK_L, TK_R, &Light.zoom);
-					else if (mode == 3) Zoom(TK_L, TK_R, &Music.zoom);
+					Zoom(TK_L, TK_R, &zoomValue);
+//					if (mode == 2) Zoom(TK_L, TK_R, &Light.zoom);
+//					else if (mode == 3) Zoom(TK_L, TK_R, &Music.zoom);
 					if (toEspFlag != TRUE) DataToESP(mode, 0x05); // Sending Scale in Lighting Mode
 				}
 				
@@ -844,8 +841,8 @@ u8 *showRows(u8 Value) {
 }
 
 void wsUpdateMag() {
-	if (mode == 2) Light_Animation(Light.slide);		// Light Mode
-	else if (mode == 3) Music_Animation(Music.slide);	// Music Mode
+	if (mode == 2) Light_Animation(slideValue);		// Light Mode
+	else if (mode == 3) Music_Animation(slideValue);	// Music Mode
 	
 	startShow = TRUE;
 }
@@ -964,23 +961,23 @@ void DataToESP(u8 category, u8 type) {
 //			data_to_esp[3] = zoomValue;
 			for (i = 4; i <= 6; i++) data_to_esp[i] = 0x00;
 		} else if (type == 0x05) {
-			data_to_esp[3] = Light.offset;
-			data_to_esp[4] = Light.zoom;
+			data_to_esp[3] = offsetValue;
+			data_to_esp[4] = zoomValue;
 			
-			if (Light.slide <= 0) Light.slide = 0;
-			else if (Light.slide >= 100) Light.slide = 100;
-			data_to_esp[5] = Light.slide;
+//			if (slideValue <= 0) slideValue = 0;
+//			else if (slideValue >= 100) slideValue = 100;
+			data_to_esp[5] = (slideValue / 255.0) * 100;
 			
 			data_to_esp[6] = 0x00;
 		}
 	} else if (category == 0x03) {
 		if (type == 0x05) {
-			data_to_esp[3] = Music.offset;
-			data_to_esp[4] = Music.zoom;
+			data_to_esp[3] = offsetValue;
+			data_to_esp[4] = zoomValue;
 			
-			if (Music.slide <= 0) Music.slide = 0;
-			else if (Music.slide >= 100) Music.slide = 100;
-			data_to_esp[5] = Music.slide;
+//			if (slideValue <= 0) slideValue = 0;
+//			else if (slideValue >= 100) slideValue = 100;
+			data_to_esp[5] = (slideValue / 255.0) * 100;
 			
 			data_to_esp[6] = 0x00;
 		}
@@ -1032,9 +1029,10 @@ void SwitchingMode(u8 status) {
 //		printf("Turn off\r\n");
 	} else if (mode == 1) {
 		mode = curr_mode;
-//		if (toEspFlag != TRUE) DataToESP(0x01, mode); // Sending Status Message
+		
 		On_Effect(20, FALSE);
 		
+		if (toEspFlag != TRUE) DataToESP(0x01, mode); // Sending Status Message
 		adcIndex = 0;
 		speakerEnable(TRUE);
 		
@@ -1043,7 +1041,7 @@ void SwitchingMode(u8 status) {
 //		printf("Turn on\r\n");
 	} else if (mode == 2) {
 		mode = 3;
-		Switch_Effect(5, Music.slide);
+		Switch_Effect(5, slideValue);
 		mode = 2;
 		curr_mode = mode;
 		adcIndex = 0;
@@ -1051,7 +1049,7 @@ void SwitchingMode(u8 status) {
 		wsUpdateMag();
 	} else if (mode == 3) {
 		mode = 2;
-		Switch_Effect(5, Light.slide);
+		Switch_Effect(5, slideValue);
 		mode = 3;
 		curr_mode = mode;
 	}
@@ -1072,12 +1070,12 @@ void LightingMode(u8 type, u8 data[]) {
 	} else if (L_Type == 0x03) {
 //		zoomValue = data[0];
 	} else if (L_Type == 0x05) {
-		if (data[0] != Light.offset) {
-			Light.offset = data[0];
-			setLedOffset(Light.offset);
+		if (data[0] != offsetValue) {
+			offsetValue = data[0];
+			setLedOffset(offsetValue);
 		}
-		if (data[1] != Light.zoom) Light.zoom = data[1];
-		if (data[2] != Light.slide) Light.slide = (data[2] / 100.0) * 255;
+		if (data[1] != zoomValue) zoomValue = data[1];
+		if (data[2] != slideValue) slideValue = (data[2] / 100.0) * 255;
 	}
 	wsUpdateMag();
 }
@@ -1108,12 +1106,12 @@ void MusicMode(u8 type, u8 data[]) {
 	} else if (M_Type == 0x04) {
 		
 	} else if (M_Type == 0x05) {
-		if (data[0] != Music.offset) {
-			Music.offset = data[0];
-			setLedOffset(Music.offset);
+		if (data[0] != offsetValue) {
+			offsetValue = data[0];
+			setLedOffset(offsetValue);
 		}
-		if (data[1] != Music.zoom) Music.zoom = data[1];
-		if (data[2] != Music.slide) Music.slide = (data[2] / 100.0) * 255;
+		if (data[1] != zoomValue) zoomValue = data[1];
+		if (data[2] != slideValue) slideValue = (data[2] / 100.0) * 255;
 	}
 }
 
@@ -1201,25 +1199,29 @@ void On_Effect(u8 wait, bool reverse) {
 }
 
 void Switch_Effect(u8 wait, u8 max_brightness) {
-	u8 effect;
+	u8 effect, mag;
 	u32 w;
 	
+	effect = 0;
+	mag = max_brightness / 16;
 	while (effect < max_brightness) {
 		if (mode == 2) Light_Animation(max_brightness - effect);
 		else Music_Animation(max_brightness - effect);
-		effect += 1;
-		w = (wait * 10000) * (max_brightness / 255);
+		effect += mag;
+		if (effect >= 254) effect = 254;
+		w = (wait * 1000);
 		wsShow();
 		while(w--);
 	}
 	effect = 0;
-	if (mode == 2) max_brightness = Music.slide;
-	else max_brightness = Light.slide;
+//	if (mode == 2) max_brightness = Music.slide;
+//	else max_brightness = Light.slide;
 	while (effect < max_brightness) {
 		if (mode == 3) Light_Animation(effect);
 		else Music_Animation(effect);
-		effect += 1;
-		w = (wait * 10000) * (max_brightness / 255);
+		effect += mag;
+		if (effect >= 254) effect = 254;
+		w = (wait * 1000);
 		wsShow();
 		while(w--);
 	}
@@ -1227,7 +1229,7 @@ void Switch_Effect(u8 wait, u8 max_brightness) {
 
 void Light_Animation(u8 brightness) {
 	u8 i, j;
-	u8 *rows = showRows(Light.zoom);
+	u8 *rows = showRows(zoomValue);
 	
 	for (i = 0; i < WS_FRQ_SIZE; i += 1) {
 		for (j = 0; j < WS_LEV_SIZE; j += 1) {
@@ -1240,8 +1242,8 @@ void Light_Animation(u8 brightness) {
 void Music_Animation(u8 brightness) {
 	u8 i, j;
 	u8 level;
-	u8 *rows = showRows(Music.zoom);
-	u8 scale = WS_FRQ_SIZE / Music.zoom;
+	u8 *rows = showRows(zoomValue);
+	u8 scale = WS_FRQ_SIZE / zoomValue;
 	u8 exactOutput[WS_FRQ_SIZE] = {0}, n = 0;
 	
 //		printf("\r");
