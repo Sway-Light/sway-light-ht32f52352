@@ -490,7 +490,7 @@ void GPTM1_Configuration(void) {
 	
 	TM_TimeBaseStructInit(&TimeBaseInit);                // Init GPTM1 time-base
 	TimeBaseInit.CounterMode = TM_CNT_MODE_UP;           // up count mode
-	TimeBaseInit.CounterReload = 24000;                  // interrupt in every 500us
+	TimeBaseInit.CounterReload = 18000;                  // interrupt in every 500us
 	TimeBaseInit.Prescaler = 5;
 	TimeBaseInit.PSCReloadTime = TM_PSC_RLD_IMMEDIATE;   // reload immediately
 	TM_TimeBaseInit(HT_GPTM1, &TimeBaseInit);            // write the parameters into GPTM1
@@ -1240,6 +1240,7 @@ void Light_Animation(u8 brightness) {
 }
 
 void Music_Animation(u8 brightness) {
+	const u8 o = 2;
 	u8 i, j;
 	u8 level;
 	u8 *rows = showRows(zoomValue);
@@ -1249,11 +1250,11 @@ void Music_Animation(u8 brightness) {
 //		printf("\r");
 	for (i = 0; i < WS_FRQ_SIZE; i += 1) {
 		if (i % scale == 0) {
-			if (OutputSignal[i] < 3) level = 1;
-			else if(OutputSignal[i] < 5) level = 2;
-			else if(OutputSignal[i] < 8) level = 3;
-			else if(OutputSignal[i] < 11) level = 4;
-			else if(OutputSignal[i] < 14) level = 5;
+			if (OutputSignal[i] < (o + 3)) level = 1;
+			else if(OutputSignal[i] < (o + 5)) level = 2;
+			else if(OutputSignal[i] < (o + 8)) level = 3;
+			else if(OutputSignal[i] < (o + 11)) level = 4;
+			else if(OutputSignal[i] < (o + 14)) level = 5;
 			else if(OutputSignal[i] < 17) level = 6;
 			else if(OutputSignal[i] < 20) level = 7;
 			else if(OutputSignal[i] < 23) level = 8;
@@ -1279,11 +1280,11 @@ void Music_Animation(u8 brightness) {
 		// update drop down timer
 		if(exactOutput[n] > wsLevel[i]) {
 			wsLevel[i] = exactOutput[n];
-			wsLevelTM[i] = 50;
+			wsLevelTM[i] = 65;
 		}
 		if(wsLevelTM[i] == 0) {
 			if(wsLevel[i] >= exactOutput[n]) wsLevel[i]--;
-			wsLevelTM[i] = 8;
+			wsLevelTM[i] = 10;
 		}
 		
 		if (rows[i] == 1) n += 1;
