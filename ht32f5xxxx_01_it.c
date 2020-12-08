@@ -475,7 +475,7 @@ extern u8 mp3CmdQueue[QUEUE_MAX_SIZE];
 extern u8 queueSize;
 
 const u8 TX_test[4][7] = {"AT#MA\r\n", "AT#MB\r\n", "AT#MC\r\n", "AT#MD\r\n"};
-u8 RX_test[2];
+u8 RX_test[4];
 
 extern u8 BLE_Flag;
 
@@ -498,7 +498,7 @@ void UART0_IRQHandler(void) {
 		RX_test[RX_index] = USART_ReceiveData(HT_UART0);
 		printf("%c", RX_test[RX_index]);
 		RX_index += 1;
-		if (RX_index >= 2) {
+		if (RX_index >= 4) {
 			BLE_Flag = FALSE;
 			RX_index = 0;
 			printf("\r\n");

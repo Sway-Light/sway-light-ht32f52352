@@ -280,8 +280,6 @@ int main(void) {
 	
 	DefineRefBit();
 	
-	printf("Start\r\n");
-	
 	while (1) {
 		if (realTime_flag == TRUE && Timestamp != 0) {
 //			char buf[80];
@@ -399,7 +397,7 @@ int main(void) {
 				TK_CHECK = TRUE;
 				Touch.Data = Touchkey_ButtonRead();
 				get_TKLR();
-				printf("\rStatus = %d, DATA = %04X, slideValue = %3d, zoomValue = %3d", status, Touch.Data, slideValue, zoomValue);
+//				printf("\rStatus = %d, DATA = %04X, slideValue = %3d, zoomValue = %3d", status, Touch.Data, slideValue, zoomValue);
 				if (status == slide) {
 					Slide(TK_L, TK_R, &slideValue);
 //					if (mode == 2) Slide(TK_L, TK_R, &Light.slide);
