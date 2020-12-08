@@ -253,8 +253,6 @@ void GPTM1_IRQHandler(void) {
 	
 	TM_ClearFlag(HT_GPTM1, TM_FLAG_UEV);
 	
-	USART_IntConfig(HT_UART0, USART_INT_TXDE, ENABLE);
-	
 	// LED
 	if (startShow == TRUE || initFlag == FALSE) {
 		wsShow();
@@ -476,29 +474,24 @@ void popCmdQueue(u8 *queue, u8 *queueSize) {
 extern u8 mp3CmdQueue[QUEUE_MAX_SIZE];
 extern u8 queueSize;
 
-const u8 TX_test[7] = "AT#MA\r\n";
+const u8 TX_test[4][7] = {"AT#MA\r\n", "AT#MB\r\n", "AT#MC\r\n", "AT#MD\r\n"};
 u8 RX_test[2];
 
+extern u8 BLE_Flag;
+
 void UART0_IRQHandler(void) {
-	static u8 TX_index = 0, RX_index = 0;
+	static u8 TX_index = 0, RX_index = 0, index = 0;
 	if (USART_GetIntStatus(HT_UART0, USART_INT_TXDE) && USART_GetFlagStatus(HT_UART0, USART_FLAG_TXDE)) {
-		USART_SendData(HT_UART0, TX_test[TX_index]);
+		USART_SendData(HT_UART0, TX_test[index][TX_index]);
 		TX_index += 1;
 		if (TX_index >= 7) {
 			USART_IntConfig(HT_UART0, USART_INT_TXDE, DISABLE);
-			printf("Finished\r\n");
+			
+			index += 1;
+			if (index >= 4) index = 0;
+			
 			TX_index = 0;
 		}
-		
-//		if (queueSize > 0) {
-//			printf("queue size: %d\r\n", queueSize);
-//			USART_SendData(HT_UART0, mp3CmdQueue[0]);
-//			printf("%x " ,mp3CmdQueue[0]);
-//			popCmdQueue(mp3CmdQueue, &queueSize);
-//		} else {
-//			printf("\r\n");
-//			USART_IntConfig(HT_UART0, USART_INT_TXDE, DISABLE); // After Transmitting Data is completed, disable the interrupt of UART0.
-//		}
 	}
 	
 	if (USART_GetFlagStatus(HT_UART0, USART_FLAG_RXDR)) {
@@ -506,6 +499,7 @@ void UART0_IRQHandler(void) {
 		printf("%c", RX_test[RX_index]);
 		RX_index += 1;
 		if (RX_index >= 2) {
+			BLE_Flag = FALSE;
 			RX_index = 0;
 			printf("\r\n");
 		}

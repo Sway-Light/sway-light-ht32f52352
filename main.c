@@ -106,6 +106,7 @@ void I2C_Configuration(void);
 void ADC_Configuration(void);
 void TM_Configuration(void);
 void espUART_Configuration(void);
+void BLEUART_Configuration(void);
 void BFTM0_Configuration(void);
 
 #if (ENABLE_CKOUT == 1)
@@ -226,6 +227,9 @@ bool errorFlag = FALSE;
 u8 data_from_esp[10], data_to_esp[10];
 u8 recieve_index = 0, send_index = 0;
 
+// bluetooth
+u8 BLE_Flag = FALSE;
+
 /* Private variables ---------------------------------------------------------------------------------------*/
 /* Global functions ----------------------------------------------------------------------------------------*/
 /*********************************************************************************************************//**
@@ -258,6 +262,8 @@ int main(void) {
 	TM_Configuration();
 	I2C_Configuration();
 	ADC_Configuration();
+	
+	BLEUART_Configuration();
 	
 	initFlag = TRUE;
 	ADC_Cmd(HT_ADC0, ENABLE);
@@ -423,6 +429,11 @@ int main(void) {
 				RUN_FFT();
 				wsUpdateMag();
 			}
+		}
+		
+		if (BLE_Flag == FALSE) {
+			BLE_Flag = TRUE;
+			USART_IntConfig(HT_UART0, USART_INT_TXDE, ENABLE);
 		}
 	}
 }
@@ -637,8 +648,6 @@ void BLEUART_Configuration(void) {
 		CKCU_PeripClockConfig(CKCUClock, ENABLE);
 	}
 	
-	GPIO_PullResistorConfig(HT_GPIOC, GPIO_PIN_5, GPIO_PR_UP);
-	
 	AFIO_GPxConfig(GPIO_PC, AFIO_PIN_4, AFIO_FUN_USART_UART); // TX
 	AFIO_GPxConfig(GPIO_PC, AFIO_PIN_5, AFIO_FUN_USART_UART); // RX
 	
@@ -647,14 +656,14 @@ void BLEUART_Configuration(void) {
 	USART_InitStructure.USART_StopBits = USART_STOPBITS_1;
 	USART_InitStructure.USART_Parity = USART_PARITY_NO;
 	USART_InitStructure.USART_Mode = USART_MODE_NORMAL;
-	USART_Init(HT_USART0, &USART_InitStructure);
+	USART_Init(HT_UART0, &USART_InitStructure);
 	
-	NVIC_EnableIRQ(USART0_IRQn);
+	NVIC_EnableIRQ(UART0_IRQn);
 	
-	USART_IntConfig(HT_USART0, USART_INT_RXDR, ENABLE);
+	USART_IntConfig(HT_UART0, USART_INT_RXDR, ENABLE);
 	
-	USART_TxCmd(HT_USART0, ENABLE);
-	USART_RxCmd(HT_USART0, ENABLE);
+	USART_TxCmd(HT_UART0, ENABLE);
+	USART_RxCmd(HT_UART0, ENABLE);
 }
 
 void BFTM0_Configuration(void) {
