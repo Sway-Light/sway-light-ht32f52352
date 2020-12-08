@@ -274,6 +274,8 @@ int main(void) {
 	
 	DefineRefBit();
 	
+	printf("Start\r\n");
+	
 	while (1) {
 		if (realTime_flag == TRUE && Timestamp != 0) {
 //			char buf[80];
@@ -391,7 +393,7 @@ int main(void) {
 				TK_CHECK = TRUE;
 				Touch.Data = Touchkey_ButtonRead();
 				get_TKLR();
-//				printf("\rStatus = %d, DATA = %04X, slideValue = %3d, zoomValue = %3d", status, Touch.Data, Light.slide, Light.zoom);
+				printf("\rStatus = %d, DATA = %04X, slideValue = %3d, zoomValue = %3d", status, Touch.Data, slideValue, zoomValue);
 				if (status == slide) {
 					Slide(TK_L, TK_R, &slideValue);
 //					if (mode == 2) Slide(TK_L, TK_R, &Light.slide);
@@ -610,6 +612,35 @@ void espUART_Configuration(void) {
 	
 	AFIO_GPxConfig(GPIO_PA, AFIO_PIN_8, AFIO_FUN_USART_UART); // TX
 	AFIO_GPxConfig(GPIO_PA, AFIO_PIN_10, AFIO_FUN_USART_UART); // RX
+	
+	USART_InitStructure.USART_BaudRate = 9600;
+	USART_InitStructure.USART_WordLength = USART_WORDLENGTH_8B;
+	USART_InitStructure.USART_StopBits = USART_STOPBITS_1;
+	USART_InitStructure.USART_Parity = USART_PARITY_NO;
+	USART_InitStructure.USART_Mode = USART_MODE_NORMAL;
+	USART_Init(HT_USART0, &USART_InitStructure);
+	
+	NVIC_EnableIRQ(USART0_IRQn);
+	
+	USART_IntConfig(HT_USART0, USART_INT_RXDR, ENABLE);
+	
+	USART_TxCmd(HT_USART0, ENABLE);
+	USART_RxCmd(HT_USART0, ENABLE);
+}
+
+void BLEUART_Configuration(void) {
+	USART_InitTypeDef USART_InitStructure;
+	
+	{ /* Enable peripheral clock                                                                              */
+		CKCU_PeripClockConfig_TypeDef CKCUClock = {{ 0 }};
+		CKCUClock.Bit.UART0 = 1;
+		CKCU_PeripClockConfig(CKCUClock, ENABLE);
+	}
+	
+	GPIO_PullResistorConfig(HT_GPIOC, GPIO_PIN_5, GPIO_PR_UP);
+	
+	AFIO_GPxConfig(GPIO_PC, AFIO_PIN_4, AFIO_FUN_USART_UART); // TX
+	AFIO_GPxConfig(GPIO_PC, AFIO_PIN_5, AFIO_FUN_USART_UART); // RX
 	
 	USART_InitStructure.USART_BaudRate = 9600;
 	USART_InitStructure.USART_WordLength = USART_WORDLENGTH_8B;
