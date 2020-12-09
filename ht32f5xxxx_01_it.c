@@ -474,34 +474,29 @@ void popCmdQueue(u8 *queue, u8 *queueSize) {
 extern u8 mp3CmdQueue[QUEUE_MAX_SIZE];
 extern u8 queueSize;
 
-const u8 TX_test[4][7] = {"AT#MA\r\n", "AT#MB\r\n", "AT#MC\r\n", "AT#MD\r\n"};
-u8 RX_test[4];
-
 extern u8 BLE_Flag;
+extern u8 BLE_TX[7], BLE_RX[9];
 
 void UART0_IRQHandler(void) {
-	static u8 TX_index = 0, RX_index = 0, index = 0;
+	static u8 TX_index = 0, RX_index = 0;
 	if (USART_GetIntStatus(HT_UART0, USART_INT_TXDE) && USART_GetFlagStatus(HT_UART0, USART_FLAG_TXDE)) {
-		USART_SendData(HT_UART0, TX_test[index][TX_index]);
+		USART_SendData(HT_UART0, BLE_TX[TX_index]);
 		TX_index += 1;
 		if (TX_index >= 7) {
 			USART_IntConfig(HT_UART0, USART_INT_TXDE, DISABLE);
-			
-			index += 1;
-			if (index >= 4) index = 0;
-			
 			TX_index = 0;
 		}
 	}
 	
 	if (USART_GetFlagStatus(HT_UART0, USART_FLAG_RXDR)) {
-		RX_test[RX_index] = USART_ReceiveData(HT_UART0);
-		printf("%c", RX_test[RX_index]);
-		RX_index += 1;
-		if (RX_index >= 4) {
-			BLE_Flag = FALSE;
+//		printf("%c\r\n", USART_ReceiveData(HT_UART0));
+		BLE_RX[RX_index] = USART_ReceiveData(HT_UART0);
+//		printf("%c", BLE_RX[RX_index]);
+		if (BLE_RX[RX_index] == '\n' && RX_index > 1) {
+			BLE_Flag = TRUE;
 			RX_index = 0;
-			printf("\r\n");
+		} else {
+			RX_index += 1;
 		}
 	}
 }

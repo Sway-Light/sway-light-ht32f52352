@@ -131,10 +131,12 @@ void calculateGradient(u8 i1, u8 i2, u8 Fst_color[], u8 Snd_color[]);
 void generateMusicColor(u8 level);
 void DataToESP(u8 category, u8 type);
 void DataFromESP(u8 command[]);
+void DataFromBT(u8 command[]);
 void SwitchingMode(u8 status);
 void LightingMode(u8 type, u8 data[]);
 void MusicMode(u8 type, u8 data[]);
 void Setting(u8 syncType, u8 data[]);
+void BT_Module(u8 type, u8 data[]);
 void On_Effect(u8 wait, bool reverse);
 void Switch_Effect(u8 wait, u8 max_brightness);
 void Light_Animation(u8 brightness);
@@ -229,6 +231,8 @@ u8 recieve_index = 0, send_index = 0;
 
 // bluetooth
 u8 BLE_Flag = FALSE;
+u8 BLE_TX[7] = "AT#__\r\n", BLE_RX[9] = "";
+u8 RX_index = 0;
 
 /* Private variables ---------------------------------------------------------------------------------------*/
 /* Global functions ----------------------------------------------------------------------------------------*/
@@ -429,9 +433,9 @@ int main(void) {
 			}
 		}
 		
-		if (BLE_Flag == FALSE) {
-			BLE_Flag = TRUE;
-			USART_IntConfig(HT_UART0, USART_INT_TXDE, ENABLE);
+		if (BLE_Flag == TRUE) {
+			DataFromBT(BLE_RX);
+			BLE_Flag = FALSE;
 		}
 	}
 }
@@ -639,6 +643,7 @@ void espUART_Configuration(void) {
 
 void BLEUART_Configuration(void) {
 	USART_InitTypeDef USART_InitStructure;
+	USART_SynClock_InitTypeDef USART_SynClock_InitStructure;
 	
 	{ /* Enable peripheral clock                                                                              */
 		CKCU_PeripClockConfig_TypeDef CKCUClock = {{ 0 }};
@@ -649,12 +654,18 @@ void BLEUART_Configuration(void) {
 	AFIO_GPxConfig(GPIO_PC, AFIO_PIN_4, AFIO_FUN_USART_UART); // TX
 	AFIO_GPxConfig(GPIO_PC, AFIO_PIN_5, AFIO_FUN_USART_UART); // RX
 	
-	USART_InitStructure.USART_BaudRate = 9600;
+	USART_InitStructure.USART_BaudRate = 115200;
 	USART_InitStructure.USART_WordLength = USART_WORDLENGTH_8B;
 	USART_InitStructure.USART_StopBits = USART_STOPBITS_1;
 	USART_InitStructure.USART_Parity = USART_PARITY_NO;
 	USART_InitStructure.USART_Mode = USART_MODE_NORMAL;
 	USART_Init(HT_UART0, &USART_InitStructure);
+	
+	USART_SynClock_InitStructure.USART_ClockEnable = USART_SYN_CLOCK_ENABLE;
+	USART_SynClock_InitStructure.USART_ClockPhase = USART_SYN_CLOCK_PHASE_SECOND;
+	USART_SynClock_InitStructure.USART_ClockPolarity = USART_SYN_CLOCK_POLARITY_LOW;
+	USART_SynClock_InitStructure.USART_TransferSelectMode = USART_LSB_FIRST;
+	USART_SynClockInit(HT_UART0, &USART_SynClock_InitStructure);
 	
 	NVIC_EnableIRQ(UART0_IRQn);
 	
@@ -1052,7 +1063,18 @@ void DataFromESP(u8 command[]) {
 	} else if (command[1] == 0x04) {	// Setting
 //		printf("Setting: \r\n");
 		Setting(command[2], data);
+	} else if (command[1] == 0x05) {	// BT_Module
+//		printf("BT_Module: \r\n");
+		BT_Module(command[2], data);
 	}
+}
+
+void DataFromBT(u8 command[]) {
+	u8 i;
+	
+//	if (command[0] == 'E' && command[1] == 'R' && command[2] == 'R') printf("The command is error.\r\n");
+	for (i = 0; i < 7; i += 1) printf("%c", BLE_RX[i]);
+	for (i = 0; i < 7; i += 1) BLE_RX[i] = 0x20;
 }
 
 void SwitchingMode(u8 status) {	
@@ -1196,6 +1218,19 @@ void Setting(u8 syncType, u8 data[]) {
 //		printf("\r\n");
 	}
 //	printf("Timestamp: %d sec\r\n", Timestamp);
+}
+
+void BT_Module(u8 type, u8 data[]) {
+	u8 i;
+	
+	if (type == 0x06) {
+		
+	} else if (type == 0x07) {
+		BLE_TX[3] = data[0];
+		BLE_TX[4] = data[1];
+		for (i = 0; i < 7; i += 1) printf("%c", BLE_TX[i]);
+		USART_IntConfig(HT_UART0, USART_INT_TXDE, ENABLE);
+	}
 }
 
 void On_Effect(u8 wait, bool reverse) {
