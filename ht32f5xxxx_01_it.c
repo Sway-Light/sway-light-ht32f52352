@@ -471,7 +471,9 @@ void popCmdQueue(u8 *queue, u8 *queueSize) {
  * @brief   This function handles UART interrupt.
  * @retval  None
  ************************************************************************************************************/
-extern u8 mp3CmdQueue[QUEUE_MAX_SIZE];
+#define QUEUE_MAX_SIZE 50
+
+extern u8 CmdQueue[QUEUE_MAX_SIZE];
 extern u8 queueSize;
 
 extern u8 BLE_Flag;
@@ -489,10 +491,9 @@ void UART0_IRQHandler(void) {
 	}
 	
 	if (USART_GetFlagStatus(HT_UART0, USART_FLAG_RXDR)) {
-//		printf("%c\r\n", USART_ReceiveData(HT_UART0));
 		BLE_RX[RX_index] = USART_ReceiveData(HT_UART0);
 //		printf("%c", BLE_RX[RX_index]);
-		if (BLE_RX[RX_index] == '\n' && RX_index > 1) {
+		if (BLE_RX[RX_index] == '\r' && RX_index > 1) {
 			BLE_Flag = TRUE;
 			RX_index = 0;
 		} else {

@@ -2,8 +2,6 @@
 
 #define mp3Debug	0
 
-#define QUEUE_MAX_SIZE 50
-
 u16 mp3GetChecksum(u8*);
 
 void mp3FillChecksum(void);

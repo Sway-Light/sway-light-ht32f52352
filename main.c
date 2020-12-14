@@ -34,8 +34,6 @@
 #include "arm_const_structs.h"
 
 #include "ws2812.h"
-#include "DFPlayer.h"
-#include "74HC4067.h"
 
 #include "_ht32_project_source.h"
 
@@ -219,10 +217,6 @@ bool btReleaseFlag = FALSE;
 bool longClick = FALSE;
 u32 btTM = 0;
 
-// mp3
-u8 mp3CmdQueue[QUEUE_MAX_SIZE];
-u8 queueSize = 0;
-
 // esp8266
 bool espFlag = FALSE, toEspFlag = FALSE;
 bool errorFlag = FALSE;
@@ -230,9 +224,12 @@ u8 data_from_esp[10], data_to_esp[10];
 u8 recieve_index = 0, send_index = 0;
 
 // bluetooth
+#define QUEUE_MAX_SIZE 50
+u8 queueSize = 0, CmdQueue[QUEUE_MAX_SIZE];
 u8 BLE_Flag = FALSE;
 u8 BLE_TX[7] = "AT#__\r\n", BLE_RX[9] = "";
-u8 RX_index = 0;
+bool BT_CON = FALSE, BT_isPlay = FALSE;
+u16 BT_VOL = 0;
 
 /* Private variables ---------------------------------------------------------------------------------------*/
 /* Global functions ----------------------------------------------------------------------------------------*/
@@ -626,7 +623,7 @@ void espUART_Configuration(void) {
 	AFIO_GPxConfig(GPIO_PA, AFIO_PIN_8, AFIO_FUN_USART_UART); // TX
 	AFIO_GPxConfig(GPIO_PA, AFIO_PIN_10, AFIO_FUN_USART_UART); // RX
 	
-	USART_InitStructure.USART_BaudRate = 9600;
+	USART_InitStructure.USART_BaudRate = 115200;
 	USART_InitStructure.USART_WordLength = USART_WORDLENGTH_8B;
 	USART_InitStructure.USART_StopBits = USART_STOPBITS_1;
 	USART_InitStructure.USART_Parity = USART_PARITY_NO;
@@ -662,7 +659,7 @@ void BLEUART_Configuration(void) {
 	USART_Init(HT_UART0, &USART_InitStructure);
 	
 	USART_SynClock_InitStructure.USART_ClockEnable = USART_SYN_CLOCK_ENABLE;
-	USART_SynClock_InitStructure.USART_ClockPhase = USART_SYN_CLOCK_PHASE_SECOND;
+	USART_SynClock_InitStructure.USART_ClockPhase = USART_SYN_CLOCK_PHASE_FIRST;
 	USART_SynClock_InitStructure.USART_ClockPolarity = USART_SYN_CLOCK_POLARITY_LOW;
 	USART_SynClock_InitStructure.USART_TransferSelectMode = USART_LSB_FIRST;
 	USART_SynClockInit(HT_UART0, &USART_SynClock_InitStructure);
@@ -1030,6 +1027,14 @@ void DataToESP(u8 category, u8 type) {
 			
 			data_to_esp[6] = 0x00;
 		}
+	} else if (category == 0x05) {
+		if (type == 0x06) {
+			data_to_esp[3] = (u8)BT_CON;
+			data_to_esp[4] = (u8)BT_isPlay;
+			data_to_esp[5] = (u8)BT_VOL;
+			
+			data_to_esp[6] = 0x00;
+		}
 	}
 	for (i = 1; i <= 6; i++) checksum += data_to_esp[i];
 	data_to_esp[7] = checksum >> 8;
@@ -1071,10 +1076,41 @@ void DataFromESP(u8 command[]) {
 
 void DataFromBT(u8 command[]) {
 	u8 i;
+	u8 data[5] = "-----", index = 0;
+	u16 volume[2];
 	
-//	if (command[0] == 'E' && command[1] == 'R' && command[2] == 'R') printf("The command is error.\r\n");
-	for (i = 0; i < 7; i += 1) printf("%c", BLE_RX[i]);
-	for (i = 0; i < 7; i += 1) BLE_RX[i] = 0x20;
+	for (i = 0; i < 9; i += 1) {
+		if (command[i] != '\r' && command[i] != '\n' && command[i] != ' ') {
+			data[index] = command[i];
+//			printf("%d: '%c'\r\n", index, data[index]);
+			index += 1;
+		}
+	}
+//	printf("\n");
+	
+	if (data[0] == 'E' && data[1] == 'R' && data[2] == 'R') {
+//		printf("The command is error.\r\n");
+	} else if (data[0] == 'V' && data[1] == 'O' && data[2] == 'L') {
+		for (i = 0; i < 2; i += 1) volume[i] = data[i + 3];
+		if (volume[1] != '-') BT_VOL = (volume[0] - '0') * 10 + (volume[1] - '0');
+		else BT_VOL = (volume[0] - '0');
+		printf("Set volume: %d\r\n", BT_VOL);
+	} else if (data[0] == 'M' && (data[1] == 'A' || data[1] == 'P')) {
+//		printf("Music isn't playing\r\n");
+		BT_isPlay = FALSE;
+	} else if (data[0] == 'M' && (data[1] == 'B' || data[1] == 'R')) {
+//		printf("Music is playing\r\n");
+		BT_isPlay = TRUE;
+	} else if (data[0] == 'I' && data[1] == 'V') {
+//		printf("BT Connected");
+		BT_CON = TRUE;
+	} else if (data[0] == 'I' && (data[1] == 'A' || data[1] == 'I')) {
+//		printf("BT Disconnected");
+		BT_CON = FALSE;
+	}
+	if (toEspFlag == FALSE) DataToESP(0x05, 0x06);
+	
+//	for (i = 0; i < 9; i += 1) BLE_RX[i] = 0x20;
 }
 
 void SwitchingMode(u8 status) {	
