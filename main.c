@@ -125,6 +125,7 @@ void ADC_MainRoutine(void);
 void DefineRefBit(void);
 void RUN_FFT(void);
 void speakerEnable(bool enable);
+void bluetoothEnable(bool enable);
 void calculateGradient(u8 i1, u8 i2, u8 Fst_color[], u8 Snd_color[]);
 void generateMusicColor(u8 level);
 void DataToESP(u8 category, u8 type);
@@ -192,7 +193,7 @@ u8 wsLevelTM[WS_FRQ_SIZE] = {0};
 bool touchKeyDelayFlag = FALSE;
 
 // FFT
-#define TEST_LENGTH_SAMPLES 128
+#define TEST_LENGTH_SAMPLES 256
 u8 fft_mag = 24;
 u16 ref_bit;
 bool refFlag;
@@ -238,26 +239,24 @@ u16 BT_VOL = 0;
   * @retval None
   ***********************************************************************************************************/
 int main(void) {
-	NVIC_Configuration();               /* NVIC configuration                                                 */
-	CKCU_Configuration();               /* System Related configuration                                       */
-	GPIO_Configuration();               /* GPIO Related configuration                                         */
-	RETARGET_Configuration();           /* Retarget Related configuration                                     */
+	delay(1000000);				// Wait for Operating Voltage to 3.3v
 	
-//	Light.slide = 61;
-//	Light.zoom = 6;
-//	Music.slide = 76;
-//	Music.zoom = 6;
+	NVIC_Configuration();     	// NVIC configuration
+	CKCU_Configuration();     	// System Related configuration
+	GPIO_Configuration();     	// GPIO Related configuration
+	RETARGET_Configuration(); 	// Retarget Related configuration
 	
-	generateMusicColor(0x01); // high level
-	generateMusicColor(0x02); // medium level
-	generateMusicColor(0x03); // low level
+	generateMusicColor(0x01); 	// High Level
+	generateMusicColor(0x02); 	// Medium Level
+	generateMusicColor(0x03); 	// Low Level
 	
 	BFTM0_Configuration();
 	
 	ledInit(0);
 	wsInit();
 	
-	speakerEnable(FALSE);
+	speakerEnable(FALSE);		// Speaker Off
+	bluetoothEnable(FALSE);		// bluetoothEnable Module Off
 	
 	GPTM1_Configuration();
 	TM_Configuration();
@@ -275,9 +274,9 @@ int main(void) {
 	espUART_Configuration();
 	DataToESP(0x01, mode); 		// Sending Status Message
 	while(toEspFlag == TRUE);	// Wait Until Data Transferred Complete
-	DataToESP(0x02, 0x01); 		// Sending Initial Values of Color in Lighting Mode
+	DataToESP(0x02, 0x01); 		// Sending Initial Values of Color
 	while(toEspFlag == TRUE);	// Wait Until Data Transferred Complete
-	DataToESP(0x02, 0x05); 		// Sending Initial Values of Scale in Lighting Mode
+	DataToESP(0x02, 0x05); 		// Sending Initial Values of Zoom, Slide, and Offset
 	
 	DefineRefBit();
 	
@@ -299,6 +298,7 @@ int main(void) {
 						mode = 0;
 						if (toEspFlag != TRUE) DataToESP(0x01, mode); // Sending Power-Off Message
 						speakerEnable(FALSE);
+						bluetoothEnable(FALSE);
 						
 						DefineRefBit();
 					}
@@ -314,6 +314,7 @@ int main(void) {
 						if (toEspFlag != TRUE) DataToESP(0x01, mode); // Sending Status Message
 						adcIndex = 0;
 						speakerEnable(TRUE);
+						bluetoothEnable(TRUE);
 					}
 				}
 			}
@@ -371,6 +372,7 @@ int main(void) {
 				ref_bit = 0;
 				On_Effect(20, TRUE);
 				mode = 0;
+				bluetoothEnable(FALSE);
 				if (toEspFlag != TRUE) DataToESP(0x01, mode); // Sending Power-Off Message
 				
 				DefineRefBit();
@@ -382,6 +384,7 @@ int main(void) {
 				if (toEspFlag != TRUE) DataToESP(0x01, mode); // Sending Power-On Message
 				delay(1000);
 				mode = curr_mode;
+				bluetoothEnable(TRUE);
 				if (toEspFlag != TRUE) DataToESP(0x01, mode); // Sending Status Message
 				
 				if (mode == 3) adcIndex = 0;
@@ -471,8 +474,11 @@ void GPIO_Configuration(void) {
 	GPIO_DirectionConfig(HT_GPIOB, GPIO_PIN_1, GPIO_DIR_IN);
 	GPIO_InputConfig(HT_GPIOB, GPIO_PIN_1, ENABLE);
 	
-	// Music mute pin
+	// Music Mute Pin
 	GPIO_DirectionConfig(HT_GPIOC, GPIO_PIN_15, GPIO_DIR_OUT);
+	
+	// Bluetooth Module Power Pin
+	GPIO_DirectionConfig(HT_GPIOC, GPIO_PIN_8, GPIO_DIR_OUT);
 	
 #if (RETARGET_PORT == RETARGET_USART0)
 	AFIO_GPxConfig(GPIO_PA, AFIO_PIN_2 | AFIO_PIN_3, AFIO_FUN_USART_UART);
@@ -832,17 +838,20 @@ void get_TKLR(void) {
 
 void Slide(u32 L, u32 R, u8 *Value) {
 	static u32 prevL = 0, prevR = 0;
+	s16 value;
 	
+	value = *Value;
 	if (L != prevL || R != prevR) {
 		if (L > prevL || R > prevR) {
-			if (*Value <= 0) *Value = 0;
-			else if (*Value < 128) (*Value) -= 2;
-			else if (*Value >= 128) (*Value) -= 4;
+			if (value < 128) (value) -= 2;
+			else if (value >= 128) (value) -= 4;
+			if (value <= 0) value = 0;
 		} else if (L < prevL || R < prevR) {
-			if (*Value >= 255) *Value = 255;
-			else if (*Value < 128) (*Value) += 2;
-			else if (*Value >= 128) (*Value) += 4;
+			if (value < 128) (value) += 2;
+			else if (value >= 128) (value) += 4;
+			if (value >= 255) value = 255;
 		}
+		*Value = value;
 		prevL = L;
 		prevR = R;
 	}
@@ -935,10 +944,17 @@ void RUN_FFT(void) {
 }
 
 void speakerEnable(bool enable) {
-	// Music mute pin
+	// Music Mute Pin
 	// Enable  -> low
 	// Disable -> high
 	GPIO_WriteOutBits(HT_GPIOC, GPIO_PIN_15, (FlagStatus)!enable);
+}
+
+void bluetoothEnable(bool enable) {
+	// Bluetooth Module Power Pin
+	// Enable -> Bluetooth Module OFF
+	// Disable -> Bluetooth Module ON
+	GPIO_WriteOutBits(HT_GPIOC, GPIO_PIN_8, (FlagStatus)!enable);
 }
 
 void calculateGradient(u8 i1, u8 i2, u8 Fst_color[], u8 Snd_color[]) {
@@ -1119,8 +1135,13 @@ void SwitchingMode(u8 status) {
 	if (mode == 0) {
 		On_Effect(20, TRUE);
 		speakerEnable(FALSE);
+		bluetoothEnable(FALSE);
 		
 		DefineRefBit();
+		
+		BT_CON = FALSE;
+		BT_isPlay = FALSE;
+		if (toEspFlag == FALSE) DataToESP(0x05, 0x06);
 		
 //		printf("Turn off\r\n");
 	} else if (mode == 1) {
@@ -1131,6 +1152,7 @@ void SwitchingMode(u8 status) {
 		if (toEspFlag != TRUE) DataToESP(0x01, mode); // Sending Status Message
 		adcIndex = 0;
 		speakerEnable(TRUE);
+		bluetoothEnable(TRUE);
 		
 		wsUpdateMag();
 		
